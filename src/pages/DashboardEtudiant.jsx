@@ -4,7 +4,7 @@ import {
   TrendingUp, LogOut, MapPin, Clock, DollarSign, Upload, Camera, Save,
   X, CheckCircle, AlertCircle, Key, Download, FilePlus, Edit, Building2, Search,
   Trash2, Eye, ChevronDown, ChevronRight, Globe, Phone, Mail, MapPin as MapPinIcon,
-  Filter, SlidersHorizontal, Moon, Sun
+  Filter, SlidersHorizontal
 } from "lucide-react";
 
 // ============================================
@@ -77,15 +77,22 @@ const DUREE_OPTIONS = [
 ];
 
 // ============================================
-// COMPOSANT DES FILTRES RADHOUM (SIDE LIST)
+// COMPOSANT DES FILTRES RADHOUM (SIDE LIST) AVEC MODE SOMBRE
 // ============================================
-function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, darkMode, theme }) {
+function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, darkMode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  const theme = {
+    card: darkMode ? '#1f2937' : '#ffffff',
+    border: darkMode ? '#374151' : '#e5e7eb',
+    text: darkMode ? '#f3f4f6' : '#1f2937',
+    textLight: darkMode ? '#9ca3af' : '#4b5563',
+    inputBg: darkMode ? '#374151' : '#ffffff',
+    cardAlt: darkMode ? '#374151' : '#f9fafb'
+  };
+
   return (
-    <div className={`rounded-2xl shadow-sm border transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'} flex-shrink-0 h-full overflow-y-auto sticky top-6`}
-      style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-      {/* En-tête */}
+    <div className={`rounded-2xl shadow-sm border transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'} flex-shrink-0 h-full overflow-y-auto sticky top-6`} style={{ backgroundColor: theme.card, borderColor: theme.border }}>
       <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.border }}>
         {!isCollapsed && (
           <div className="flex items-center gap-2">
@@ -96,18 +103,13 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             )}
           </div>
         )}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
-          style={{ color: theme.textLight }}
-        >
-          {isCollapsed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+        <button onClick={() => setIsCollapsed(!isCollapsed)} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
+          {isCollapsed ? <ChevronRight size={18} style={{ color: theme.textLight }} /> : <ChevronDown size={18} style={{ color: theme.textLight }} />}
         </button>
       </div>
 
       {!isCollapsed && (
         <div className="p-4 space-y-5">
-          {/* Recherche */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>🔍 Recherche</label>
             <div className="relative">
@@ -118,16 +120,11 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-400 transition-all"
-                style={{ 
-                  backgroundColor: theme.inputBg, 
-                  color: theme.text,
-                  borderColor: theme.border
-                }}
+                style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
               />
             </div>
           </div>
 
-          {/* Type de stage */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>📌 Type</label>
             <div className="space-y-1.5">
@@ -150,7 +147,6 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             </div>
           </div>
 
-          {/* Localisation */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>📍 Localisation</label>
             <div className="space-y-1.5 max-h-32 overflow-y-auto">
@@ -173,7 +169,6 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             </div>
           </div>
 
-          {/* Rémunération */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>💰 Rémunération</label>
             <div className="flex gap-2">
@@ -197,7 +192,6 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             </div>
           </div>
 
-          {/* Durée */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>⏱️ Durée</label>
             <div className="flex flex-wrap gap-1.5">
@@ -223,14 +217,13 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             </div>
           </div>
 
-          {/* Compétences */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>⚙️ Compétences</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
               {filters.competences.map((comp, idx) => (
                 <span key={idx} className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
                   {comp}
-                  <button onClick={() => setFilters(prev => ({ ...prev, competences: prev.competences.filter(c => c !== comp) }))} className="hover:text-emerald-900 dark:hover:text-emerald-100">
+                  <button onClick={() => setFilters(prev => ({ ...prev, competences: prev.competences.filter(c => c !== comp) }))} className="hover:text-emerald-900">
                     <X size={12} />
                   </button>
                 </span>
@@ -240,11 +233,7 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
               type="text"
               placeholder="Ajouter une compétence..."
               className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
-              style={{ 
-                backgroundColor: theme.inputBg, 
-                color: theme.text,
-                borderColor: theme.border
-              }}
+              style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.target.value.trim()) {
                   setFilters(prev => ({ ...prev, competences: [...prev.competences, e.target.value.trim()] }));
@@ -255,12 +244,11 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
             <p className="text-xs mt-1" style={{ color: theme.textLight }}>Entrée pour ajouter</p>
           </div>
 
-          {/* Actions */}
           <div className="pt-3 border-t space-y-2" style={{ borderColor: theme.border }}>
             <button
               onClick={onReset}
               className="w-full py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}
+              style={{ backgroundColor: theme.cardAlt, color: theme.text }}
             >
               <Trash2 size={14} /> Réinitialiser
             </button>
@@ -268,7 +256,6 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
         </div>
       )}
 
-      {/* Version collapsée - icônes seulement */}
       {isCollapsed && (
         <div className="p-3 space-y-4">
           <div className="flex justify-center"><Search size={18} style={{ color: theme.textLight }} /></div>
@@ -283,33 +270,11 @@ function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, dark
 }
 
 // ============================================
-// COMPOSANT PRINCIPAL DASHBOARD ETUDIANT
+// COMPOSANT PRINCIPAL DASHBOARD ETUDIANT AVEC MODE SOMBRE
 // ============================================
-export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword }) {
+export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword, darkMode }) {
   
-  // ============================================
-  // DARK MODE STATE
-  // ============================================
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      setDarkMode(true);
-    }
-  }, []);
-
-  // Save to localStorage whenever darkMode changes
-  useEffect(() => {
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  // Theme colors
+  // Thème basé sur darkMode
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
     text: darkMode ? '#f3f4f6' : '#1f2937',
@@ -317,10 +282,8 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     card: darkMode ? '#1f2937' : '#ffffff',
     cardAlt: darkMode ? '#374151' : '#f9fafb',
     sidebar: darkMode ? '#111827' : '#111827',
-    footer: darkMode ? '#000000' : '#111827',
     border: darkMode ? '#374151' : '#e5e7eb',
     inputBg: darkMode ? '#374151' : '#ffffff',
-    inputBorder: darkMode ? '#4b5563' : '#d1d5db',
   };
 
   // ============================================
@@ -364,7 +327,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // ============================================
-  // 2. FONCTION getCurrentCv (déclarée avant d'être utilisée)
+  // 2. FONCTION getCurrentCv
   // ============================================
   const getCurrentCv = useCallback(() => {
     return {
@@ -385,7 +348,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, [formData, etudiant, customCvExtra]);
 
   // ============================================
-  // 3. showNotification (utilisée par beaucoup)
+  // 3. showNotification
   // ============================================
   const showNotification = useCallback((type, message) => {
     setNotification({ show: true, message, type });
@@ -399,7 +362,6 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     if (!offersData) return [];
 
     return offersData.filter(offre => {
-      // Filtre recherche
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const matchSearch = 
@@ -409,32 +371,18 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
           offre.competences?.some(c => c.toLowerCase().includes(searchLower));
         if (!matchSearch) return false;
       }
-
-      // Filtre types
-      if (filters.types.length > 0) {
-        if (!filters.types.includes(offre.type)) return false;
-      }
-
-      // Filtre villes
-      if (filters.villes.length > 0) {
-        if (!filters.villes.includes(offre.lieu)) return false;
-      }
-
-      // Filtre rémunération
+      if (filters.types.length > 0 && !filters.types.includes(offre.type)) return false;
+      if (filters.villes.length > 0 && !filters.villes.includes(offre.lieu)) return false;
       if (filters.remunere !== null) {
         const isRemunere = offre.salaire !== 'Non rémunéré';
         if (isRemunere !== filters.remunere) return false;
       }
-
-      // Filtre durée
       if (filters.duree) {
         const dureeValue = parseInt(offre.duree);
         if (filters.duree === 'court' && (isNaN(dureeValue) || dureeValue > 3)) return false;
         if (filters.duree === 'moyen' && (isNaN(dureeValue) || dureeValue < 3 || dureeValue > 6)) return false;
         if (filters.duree === 'long' && (isNaN(dureeValue) || dureeValue <= 6)) return false;
       }
-
-      // Filtre compétences
       if (filters.competences.length > 0) {
         const offreCompetences = offre.competences?.map(c => c.toLowerCase()) || [];
         const hasMatch = filters.competences.some(comp =>
@@ -442,7 +390,6 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
         );
         if (!hasMatch) return false;
       }
-
       return true;
     });
   }, [filters]);
@@ -679,18 +626,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   // ============================================
   return (
     <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
-      {/* Dark mode toggle button */}
-      <div className="fixed top-20 right-4 z-50">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-          style={{ backgroundColor: darkMode ? '#374151' : '#e5e7eb' }}
-          aria-label="Toggle dark mode"
-        >
-          {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
-        </button>
-      </div>
-
+      
       {/* NOTIFICATION */}
       {notification.show && (
         <div className="fixed top-20 right-4 z-50 animate-slide-in">
@@ -726,14 +662,14 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                     <Upload size={16} /> Choisir un fichier
                     <input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleCVUpload} />
                   </label>
-                  {uploadedCv && <div className="mt-3 p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-sm flex items-center justify-between"><span>📄 {uploadedCv.name}</span><CheckCircle size={16} className="text-emerald-500" /></div>}
+                  {uploadedCv && <div className="mt-3 p-2 rounded-lg text-sm flex items-center justify-between" style={{ backgroundColor: theme.cardAlt }}><span style={{ color: theme.text }}>📄 {uploadedCv.name}</span><CheckCircle size={16} className="text-emerald-500" /></div>}
                 </div>
                 
-                <div className="text-center text-sm" style={{ color: theme.textLight }}>OU</div>
+                <div className="text-center text-xs" style={{ color: theme.textLight }}>OU</div>
                 
                 <div className="rounded-xl p-5" style={{ backgroundColor: theme.cardAlt }}>
                   <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><FileText size={18} className="text-emerald-500" /> Utiliser mon CV du profil</h4>
-                  <div className="rounded-lg p-3 mb-3 text-sm" style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}` }}>
+                  <div className="rounded-lg p-3 mb-3 text-sm" style={{ backgroundColor: theme.card }}>
                     <p className="font-medium" style={{ color: theme.text }}>{getCurrentCv().nom} {getCurrentCv().prenom}</p>
                     <p className="text-xs" style={{ color: theme.textLight }}>{getCurrentCv().email}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
@@ -824,16 +760,16 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                     { label: "Niveau", name: "niveau", value: formData.niveau || etudiant.niveau }
                   ].map((field) => (
                     <div key={field.name}>
-                      <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>{field.label}</label>
+                      <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>{field.label}</label>
                       {isEditing ? <input type={field.type || "text"} name={field.name} value={formData[field.name]} onChange={handleInputChange} placeholder={field.placeholder} className="w-full p-2 border rounded-xl focus:ring-2 focus:ring-emerald-400" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <p className="p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{field.value || "Non renseigné"}</p>}
                     </div>
                   ))}
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Compétences (séparées par des virgules)</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Compétences (séparées par des virgules)</label>
                     {isEditing ? <input type="text" name="competences" value={formData.competences} onChange={handleInputChange} placeholder="React, Python, JavaScript" className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <div className="flex flex-wrap gap-2 p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>{(formData.competences || etudiant.competences?.join(", ") || "").split(",").map((s, i) => s.trim() && <span key={i} className="px-2 py-1 rounded-full text-sm" style={{ backgroundColor: theme.card, color: theme.text }}>{s.trim()}</span>)}</div>}
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Bio</label>
+                    <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Bio</label>
                     {isEditing ? <textarea name="bio" value={formData.bio} onChange={handleInputChange} rows="3" placeholder="Parlez de vous..." className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <p className="p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{formData.bio || etudiant.bio || "Aucune présentation"}</p>}
                   </div>
                 </div>
@@ -854,11 +790,11 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                     </div>
                   </div>
                   <div className="grid md:grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-gray-500 dark:text-gray-400">Téléphone:</span> <span style={{ color: theme.text }}>{getCurrentCv().telephone || "Non renseigné"}</span></div>
-                    <div><span className="text-gray-500 dark:text-gray-400">Adresse:</span> <span style={{ color: theme.text }}>{getCurrentCv().adresse || "Non renseignée"}</span></div>
-                    <div><span className="text-gray-500 dark:text-gray-400">Université:</span> <span style={{ color: theme.text }}>{getCurrentCv().universite || "Non renseignée"}</span></div>
-                    <div><span className="text-gray-500 dark:text-gray-400">Filière:</span> <span style={{ color: theme.text }}>{getCurrentCv().filiere || "Non renseignée"}</span></div>
-                    <div className="md:col-span-2"><span className="text-gray-500 dark:text-gray-400">Compétences:</span> <div className="flex flex-wrap gap-1 mt-1">{getCurrentCv().competences.map((s, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: theme.card, color: theme.text }}>{s}</span>)}</div></div>
+                    <div><span className="text-gray-500">Téléphone:</span> <span style={{ color: theme.text }}>{getCurrentCv().telephone || "Non renseigné"}</span></div>
+                    <div><span className="text-gray-500">Adresse:</span> <span style={{ color: theme.text }}>{getCurrentCv().adresse || "Non renseignée"}</span></div>
+                    <div><span className="text-gray-500">Université:</span> <span style={{ color: theme.text }}>{getCurrentCv().universite || "Non renseignée"}</span></div>
+                    <div><span className="text-gray-500">Filière:</span> <span style={{ color: theme.text }}>{getCurrentCv().filiere || "Non renseignée"}</span></div>
+                    <div className="md:col-span-2"><span className="text-gray-500">Compétences:</span> <div className="flex flex-wrap gap-1 mt-1">{getCurrentCv().competences.map((s, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: theme.card, color: theme.text }}>{s}</span>)}</div></div>
                   </div>
                 </div>
 
@@ -893,34 +829,30 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                 <div className="border-t pt-4 mt-4" style={{ borderColor: theme.border }}>
                   <p className="text-sm mb-2" style={{ color: theme.textLight }}>Ou téléchargez un CV existant :</p>
                   <label className="bg-gray-700 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-800 inline-flex items-center gap-2 text-sm"><Upload size={14} /> Choisir un fichier<input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleCVUpload} /></label>
-                  {uploadedCv && <div className="mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-sm flex items-center justify-between"><span>📄 {uploadedCv.name}</span><button onClick={() => { setUploadedCv(null); setCvName(""); }} className="text-rose-500 text-xs">Supprimer</button></div>}
+                  {uploadedCv && <div className="mt-2 p-2 rounded-lg text-sm flex items-center justify-between" style={{ backgroundColor: theme.cardAlt }}><span style={{ color: theme.text }}>📄 {uploadedCv.name}</span><button onClick={() => { setUploadedCv(null); setCvName(""); }} className="text-rose-500 text-xs">Supprimer</button></div>}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ==================== LISTE DES OFFRES AVEC FILTRES RADHOUM (SIDE LIST) ==================== */}
+          {/* ==================== LISTE DES OFFRES AVEC FILTRES ==================== */}
           {activeMenu === "offres" && (
             <div className="flex gap-5">
-              {/* Side list des filtres Radhoum */}
               <RadhoumFilters 
                 filters={filters}
                 setFilters={setFilters}
                 activeFiltersCount={activeFiltersCount}
                 onReset={handleResetFilters}
                 darkMode={darkMode}
-                theme={theme}
               />
               
-              {/* Liste des offres */}
               <div className="flex-1 space-y-4">
-                {/* En-tête avec compteur */}
                 <div className="flex justify-between items-center">
                   <p className="text-sm" style={{ color: theme.textLight }}>
-                    <span className="font-bold text-emerald-600">{offresFiltrees.length}</span> offre{offresFiltrees.length > 1 ? 's' : ''} trouvée{offresFiltrees.length > 1 ? 's' : ''}
+                    <span className="font-bold text-emerald-500">{offresFiltrees.length}</span> offre{offresFiltrees.length > 1 ? 's' : ''} trouvée{offresFiltrees.length > 1 ? 's' : ''}
                   </p>
                   {activeFiltersCount > 0 && (
-                    <button onClick={handleResetFilters} className="text-emerald-600 hover:text-emerald-700 text-sm flex items-center gap-1">
+                    <button onClick={handleResetFilters} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 text-sm flex items-center gap-1">
                       <X size={14} /> Effacer tous les filtres
                     </button>
                   )}
@@ -940,10 +872,10 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                               </div>
                               <h3 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{offre.titre}</h3>
                               <div className="flex items-center gap-2 mb-3" style={{ color: theme.textLight }}><Building2 size={16} /><span className="text-sm">{offre.entreprise}</span></div>
-                              <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}><span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu}</span><span className="flex items-center gap-1 text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span></div>
+                              <div className="flex flex-wrap gap-4 mb-3 text-sm"><span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu}</span><span className="flex items-center gap-1 text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span></div>
                               <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}><p className="text-sm leading-relaxed" style={{ color: theme.text }}>{offre.description}</p></div>
                               {offre.competences && offre.competences.length > 0 && (
-                                <div className="mt-3"><p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p><div className="flex flex-wrap gap-2">{offre.competences.map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{s}</span>)}</div></div>
+                                <div className="mt-3"><p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p><div className="flex flex-wrap gap-2">{offre.competences.map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}</div></div>
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-3 ml-4">
@@ -960,7 +892,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                     <Search size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
                     <p style={{ color: theme.textLight }}>Aucune offre ne correspond à vos critères</p>
                     {activeFiltersCount > 0 && (
-                      <button onClick={handleResetFilters} className="mt-3 text-emerald-600 hover:text-emerald-700">
+                      <button onClick={handleResetFilters} className="mt-3 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">
                         Effacer tous les filtres
                       </button>
                     )}
@@ -975,7 +907,15 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
             <div className="space-y-3">
               {mesCandidatures.length > 0 ? mesCandidatures.map(c => (
                 <div key={c.id} className="rounded-xl p-4 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-center"><div><h4 className="font-bold" style={{ color: theme.text }}>{c.offreTitre}</h4><p className="text-sm" style={{ color: theme.textLight }}>Postulé le {c.date}</p></div><span className={`px-3 py-1 rounded-full text-xs font-semibold ${c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"}`}>{c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}</span></div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="font-bold" style={{ color: theme.text }}>{c.offreTitre}</h4>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Postulé le {c.date}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"}`}>
+                      {c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}
+                    </span>
+                  </div>
                 </div>
               )) : <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Send size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Aucune candidature</p></div>}
             </div>
@@ -983,7 +923,10 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
 
           {/* ==================== MES STAGES ==================== */}
           {activeMenu === "mesStages" && (
-            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Calendar size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Mes stages apparaîtront ici</p></div>
+            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+              <Calendar size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+              <p style={{ color: theme.textLight }}>Mes stages apparaîtront ici</p>
+            </div>
           )}
 
           {/* ==================== MES FAVORIS ==================== */}
@@ -991,22 +934,39 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
             <div className="space-y-3">
               {offresFavoris.length > 0 ? offresFavoris.map(offre => (
                 <div key={offre.id} className="rounded-xl p-4 shadow-sm border-l-4 border-rose-400" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start"><div><h4 className="font-bold" style={{ color: theme.text }}>{offre.titre}</h4><p style={{ color: theme.textLight }}>{offre.entreprise}</p><div className="flex gap-3 mt-1 text-xs" style={{ color: theme.textLight }}><span><MapPin size={12} className="inline" /> {offre.lieu}</span><span><Clock size={12} className="inline" /> {offre.duree}</span></div></div><div className="flex flex-col gap-2 items-end"><button onClick={() => toggleFavori(offre.id)} className="p-2 rounded-full bg-rose-500 text-white hover:bg-rose-600"><Heart size={18} fill="white" /></button><button onClick={() => handlePostuler(offre)} className="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-600">Postuler</button></div></div>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold" style={{ color: theme.text }}>{offre.titre}</h4>
+                      <p style={{ color: theme.textLight }}>{offre.entreprise}</p>
+                      <div className="flex gap-3 mt-1 text-xs" style={{ color: theme.textLight }}><span><MapPin size={12} className="inline" /> {offre.lieu}</span><span><Clock size={12} className="inline" /> {offre.duree}</span></div>
+                    </div>
+                    <div className="flex flex-col gap-2 items-end">
+                      <button onClick={() => toggleFavori(offre.id)} className="p-2 rounded-full bg-rose-500 text-white hover:bg-rose-600"><Heart size={18} fill="white" /></button>
+                      <button onClick={() => handlePostuler(offre)} className="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-600">Postuler</button>
+                    </div>
+                  </div>
                 </div>
-              )) : <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Heart size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Aucun favori</p><button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 hover:text-emerald-700">Découvrir des offres →</button></div>}
+              )) : <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Heart size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Aucun favori</p><button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">Découvrir des offres →</button></div>}
             </div>
           )}
 
           {/* ==================== MES ÉVALUATIONS ==================== */}
           {activeMenu === "evaluations" && (
-            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Évaluations à venir</p></div>
+            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+              <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+              <p style={{ color: theme.textLight }}>Évaluations à venir</p>
+            </div>
           )}
 
           {/* ==================== CHANGER MOT DE PASSE ==================== */}
           {activeMenu === "changePassword" && (
             <div className="max-w-md mx-auto">
               <div className="rounded-2xl shadow-sm p-8" style={{ backgroundColor: theme.card }}>
-                <div className="text-center mb-6"><div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}><Key size={40} className="text-emerald-500" /></div><h3 className="text-2xl font-bold" style={{ color: theme.text }}>Changer le mot de passe</h3><p className="text-sm mt-2" style={{ color: theme.textLight }}>Sécurisez votre compte</p></div>
+                <div className="text-center mb-6">
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}><Key size={40} className="text-emerald-500" /></div>
+                  <h3 className="text-2xl font-bold" style={{ color: theme.text }}>Changer le mot de passe</h3>
+                  <p className="text-sm mt-2" style={{ color: theme.textLight }}>Sécurisez votre compte</p>
+                </div>
                 <div className="space-y-4">
                   <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Ancien mot de passe</label><input type="password" name="ancienMotDePasse" value={passwordData.ancienMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Entrez votre mot de passe actuel" />{passwordErrors.ancienMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.ancienMotDePasse}</p>}</div>
                   <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Nouveau mot de passe</label><input type="password" name="nouveauMotDePasse" value={passwordData.nouveauMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Minimum 6 caractères" />{passwordErrors.nouveauMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.nouveauMotDePasse}</p>}</div>
@@ -1022,10 +982,18 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
             <div className="rounded-2xl shadow-sm p-6 max-w-3xl mx-auto" style={{ backgroundColor: theme.card }}>
               <h3 className="font-bold text-xl mb-5" style={{ color: theme.text }}>📚 Centre d'aide</h3>
               <div className="space-y-3">
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}><p className="font-semibold" style={{ color: theme.text }}>📝 Comment postuler ?</p><p className="text-sm mt-1" style={{ color: theme.textLight }}>1. Allez dans "Liste des offres"<br />2. Choisissez une offre<br />3. Cliquez sur "Postuler"<br />4. Choisissez votre CV (upload ou CV du profil)<br />5. Confirmez</p></div>
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}><p className="font-semibold" style={{ color: theme.text }}>🔍 Comment utiliser les filtres avancés ?</p><p className="text-sm mt-1" style={{ color: theme.textLight }}>Vous pouvez combiner plusieurs critères : recherche textuelle, multi-sélection des types et villes, filtrage par rémunération et durée, ajout de compétences spécifiques.</p></div>
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}><p className="font-semibold" style={{ color: theme.text }}>❤️ Comment ajouter une offre en favori ?</p><p className="text-sm mt-1" style={{ color: theme.textLight }}>Cliquez sur le cœur ❤️ à côté de l'offre</p></div>
-                <div className="p-4 rounded-xl border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}><p className="font-semibold text-emerald-600 dark:text-emerald-400">📧 Besoin d'aide ?</p><p className="text-sm mt-1" style={{ color: theme.textLight }}>Contactez-nous : support@stageflow.dz</p></div>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                  <p className="font-semibold" style={{ color: theme.text }}>📝 Comment postuler ?</p>
+                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>1. Allez dans "Liste des offres"<br />2. Choisissez une offre<br />3. Cliquez sur "Postuler"<br />4. Choisissez votre CV (upload ou CV du profil)<br />5. Confirmez</p>
+                </div>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                  <p className="font-semibold" style={{ color: theme.text }}>🔍 Comment utiliser les filtres avancés ?</p>
+                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Vous pouvez combiner plusieurs critères : recherche textuelle, multi-sélection des types et villes, filtrage par rémunération et durée, ajout de compétences spécifiques.</p>
+                </div>
+                <div className="p-4 rounded-xl border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
+                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">📧 Besoin d'aide ?</p>
+                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Contactez-nous : support@stageflow.dz</p>
+                </div>
               </div>
             </div>
           )}

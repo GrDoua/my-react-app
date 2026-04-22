@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TrendingUp, Building2, GraduationCap, LogOut, UserCog } from "lucide-react";
+import { TrendingUp, Building2, GraduationCap, LogOut, UserCog, Moon, Sun } from "lucide-react";
 import { offresData, entreprisesData, etudiantsData, candidaturesData } from './data/data';
 import { Notification } from './Components/Notification';
 import { ModalAuth } from './Components/ModalAuth';
@@ -18,11 +18,35 @@ function App() {
   const [notification, setNotification] = useState(null);
   const [modalPostuler, setModalPostuler] = useState(null);
   const [page, setPage] = useState("accueil");
+  const [darkMode, setDarkMode] = useState(() => {
+    // Vérifier si l'utilisateur a déjà une préférence
+    const saved = localStorage.getItem('darkMode');
+    return saved === 'true' || (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
   
   const [offres, setOffres] = useState(offresData);
   const [entreprises, setEntreprises] = useState(entreprisesData);
   const [etudiants, setEtudiants] = useState(etudiantsData);
   const [candidatures, setCandidatures] = useState(candidaturesData);
+
+  // Appliquer le mode sombre
+  const toggleDarkMode = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode);
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  // Initialiser le mode sombre au démarrage
+  useState(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
 
   const handleLogin = (email, password, userType) => {
     // Vérifier admin
@@ -169,6 +193,7 @@ function App() {
         <DashboardAdmin 
           offres={offres}
           entreprises={entreprises}
+          darkMode={darkMode}
           candidatures={candidatures}
           onUpdateOffre={() => {}}
           onDeleteOffre={handleSupprimerOffre}
@@ -184,6 +209,7 @@ function App() {
         <DashboardEntreprise 
           entreprise={entreprise}
           offres={offres}
+          darkMode={darkMode}
           candidatures={candidatures}
           onAjouterOffre={handleAjouterOffre}
           onSupprimerOffre={handleSupprimerOffre}
@@ -200,6 +226,7 @@ function App() {
         <DashboardEtudiant 
           etudiant={etudiant}
           offres={offres}
+          darkMode={darkMode}
           candidatures={candidatures}
           onPostuler={(offre) => handlePostuler(offre, user.id)}
           onLogout={handleLogout}
@@ -213,36 +240,44 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-md sticky top-0 z-50">
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+      <nav className={`${darkMode ? 'bg-gray-800 shadow-lg' : 'bg-white shadow-md'} sticky top-0 z-50 transition-colors duration-300`}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPage("accueil")}>
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <TrendingUp size={16} className="text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-blue-600">Stag.io</h1>
+            <h1 className={`text-2xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Stag.io</h1>
           </div>
           
           {!user && (
             <div className="flex gap-6">
-              <button onClick={() => setPage("accueil")} className={`${page === "accueil" ? "text-blue-600 font-semibold" : "text-gray-600"} hover:text-blue-600 transition-all duration-300 hover:scale-110`}>
+              <button onClick={() => setPage("accueil")} className={`${page === "accueil" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
                 Accueil
               </button>
-              <button onClick={() => setPage("offres")} className={`${page === "offres" ? "text-blue-600 font-semibold" : "text-gray-600"} hover:text-blue-600 transition-all duration-300 hover:scale-110`}>
+              <button onClick={() => setPage("offres")} className={`${page === "offres" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
                 Offres
               </button>
             </div>
           )}
           
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {/* Bouton mode sombre */}
+            <button
+              onClick={toggleDarkMode}
+              className={`p-2 rounded-full transition-all duration-300 ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             {user ? (
               <div className="flex items-center gap-4">
-               
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+                <div className={`flex items-center gap-2 px-3 py-1.5 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full transition-colors duration-300`}>
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm">
                     {user.role === "entreprise" ? "🏢" : user.role === "admin" ? "👨‍💼" : "👨‍🎓"}
                   </div>
-                  <span className="font-semibold text-gray-700">{user.nom}</span>
+                  <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{user.nom}</span>
                 </div>
                 <button onClick={handleLogout} className="text-red-600 hover:text-red-700 font-semibold transition-colors">
                   Déconnexion
@@ -250,16 +285,14 @@ function App() {
               </div>
             ) : (
               <div className="flex gap-3">
-                {/* Bouton Espace Étudiant */}
                 <button 
                   onClick={() => openAuthModal("etudiant", "login")}
-                  className="flex items-center gap-2 px-5 py-2 bg-white text-blue-600 border-2 border-blue-600 rounded-lg font-semibold hover:transition-all duration-300 hover:scale-105"
+                  className={`flex items-center gap-2 px-5 py-2 ${darkMode ? 'bg-gray-800 text-blue-400 border-blue-400' : 'bg-white text-blue-600 border-blue-600'} border-2 rounded-lg font-semibold hover:transition-all duration-300 hover:scale-105`}
                 >
                   <GraduationCap size={18} />
                   Espace Étudiant
                 </button>
                 
-                {/* Bouton Espace Entreprise */}
                 <button 
                   onClick={() => openAuthModal("entreprise", "login")}
                   className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 hover:scale-105"
@@ -273,14 +306,14 @@ function App() {
         </div>
       </nav>
       
-   
- {user ? (
+      {user ? (
         renderDashboard()
       ) : (
         <>
           {page === "accueil" && (
             <PageAccueil 
               allerAuxOffres={() => setPage("offres")} 
+              darkMode={darkMode}
               onEnvoyerContact={handleEnvoyerContact}
               onOpenEspaceEtudiant={() => openAuthModal("etudiant", "login")}
               onOpenEspaceEntreprise={() => openAuthModal("entreprise", "login")}
@@ -288,18 +321,16 @@ function App() {
             />
           )}
           
-          {/* 👇 AJOUTE CE BLOC POUR LES OFFRES */}
           {page === "offres" && (
             <PageOffres 
               onPostulerClick={handlePostulerClick}
+              darkMode={darkMode}
               offres={offres}
               setPage={setPage}
             />
           )}
         </>
       )}
-      
-      
       
       {/* Modal Postuler */}
       {modalPostuler && (
@@ -320,6 +351,7 @@ function App() {
       {showAuthModal && (
         <ModalAuth 
           type={authType}
+          darkMode={darkMode}
           userType={authUserType}
           onClose={() => {
             setShowAuthModal(false);

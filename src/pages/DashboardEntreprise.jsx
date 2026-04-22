@@ -5,11 +5,11 @@ import {
   FileText, Upload, Download, FilePlus, Eye, Phone, MapPin, Mail, Search,
   Award, AlertCircle, Check, XCircle, HelpCircle,
   MessageCircle, BookOpen, ExternalLink, DollarSign, Star, Camera, Globe,
-  PieChart, Tag, Moon, Sun
+  PieChart, Tag
 } from "lucide-react";
 
 // ============================================
-// COMPOSANT DASHBOARD ENTREPRISE (VERSION VERTE)
+// COMPOSANT DASHBOARD ENTREPRISE (AVEC MODE SOMBRE SYNCHRONISÉ)
 // ============================================
 export function DashboardEntreprise({ 
   entreprise, 
@@ -22,31 +22,10 @@ export function DashboardEntreprise({
   onChangePassword,
   onAccepterCandidat,
   onRefuserCandidat,
-  onSaveEvaluation
+  onSaveEvaluation,
+  darkMode  // ← Reçoit darkMode de App.jsx
 }) {
-  // ============================================
-  // DARK MODE STATE
-  // ============================================
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      setDarkMode(true);
-    }
-  }, []);
-
-  // Save to localStorage whenever darkMode changes
-  useEffect(() => {
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  // Theme colors
+  // Theme colors basé sur darkMode (pas de state local)
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
     text: darkMode ? '#f3f4f6' : '#1f2937',
@@ -340,17 +319,6 @@ export function DashboardEntreprise({
 
   return (
     <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
-      {/* Dark mode toggle button */}
-      <div className="fixed top-20 right-4 z-50">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-          style={{ backgroundColor: darkMode ? '#374151' : '#e5e7eb' }}
-          aria-label="Toggle dark mode"
-        >
-          {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
-        </button>
-      </div>
 
       {/* NOTIFICATION */}
       {notification.show && (
@@ -453,7 +421,6 @@ export function DashboardEntreprise({
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Informations du stagiaire */}
               <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -475,14 +442,12 @@ export function DashboardEntreprise({
                 </div>
               </div>
 
-              {/* Grille d'évaluation */}
               <div className="space-y-5">
                 <h4 className="font-semibold flex items-center gap-2" style={{ color: theme.text }}>
                   <Award size={18} className="text-emerald-500" />
                   Grille d'évaluation (sur 20 points)
                 </h4>
                 
-                {/* Ponctualité */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
@@ -499,14 +464,8 @@ export function DashboardEntreprise({
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{ backgroundColor: theme.border }}
                   />
-                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
-                    <span>❌ Très irrégulier</span>
-                    <span>⚠️ Quelques retards</span>
-                    <span>✅ Toujours à l'heure</span>
-                  </div>
                 </div>
 
-                {/* Qualité du travail */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
@@ -523,14 +482,8 @@ export function DashboardEntreprise({
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{ backgroundColor: theme.border }}
                   />
-                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
-                    <span>📄 Travail non conforme</span>
-                    <span>📑 Quelques erreurs</span>
-                    <span>✨ Excellent travail</span>
-                  </div>
                 </div>
 
-                {/* Autonomie */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
@@ -547,14 +500,8 @@ export function DashboardEntreprise({
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{ backgroundColor: theme.border }}
                   />
-                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
-                    <span>🆘 Besoin constant d'aide</span>
-                    <span>🤝 Travaille en équipe</span>
-                    <span>🚀 Totalement autonome</span>
-                  </div>
                 </div>
 
-                {/* Esprit d'équipe */}
                 <div>
                   <div className="flex justify-between mb-2">
                     <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
@@ -571,15 +518,9 @@ export function DashboardEntreprise({
                     className="w-full h-2 rounded-lg appearance-none cursor-pointer"
                     style={{ backgroundColor: theme.border }}
                   />
-                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
-                    <span>😤 Difficile à intégrer</span>
-                    <span>🤝 Coopère bien</span>
-                    <span>🌟 Leader naturel</span>
-                  </div>
                 </div>
               </div>
 
-              {/* Note globale et commentaire */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t" style={{ borderColor: theme.border }}>
                 <div>
                   <label className="font-medium block mb-2 flex items-center gap-2" style={{ color: theme.text }}>
@@ -600,13 +541,6 @@ export function DashboardEntreprise({
                       </button>
                     ))}
                   </div>
-                  <p className="text-xs mt-2" style={{ color: theme.textLight }}>
-                    {evaluation.note === 1 && "⚠️ Insuffisant - Des progrès majeurs nécessaires"}
-                    {evaluation.note === 2 && "📊 Satisfaisant - Moyenne, peut mieux faire"}
-                    {evaluation.note === 3 && "👍 Bien - Bon travail, continuez"}
-                    {evaluation.note === 4 && "🌟 Très bien - Excellente performance"}
-                    {evaluation.note === 5 && "🏆 Exceptionnel - Au-delà des attentes"}
-                  </p>
                 </div>
 
                 <div>
@@ -643,7 +577,6 @@ export function DashboardEntreprise({
                 />
               </div>
 
-              {/* Résumé de l'évaluation */}
               <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
                 <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}>
                   <PieChart size={16} className="text-emerald-500" />
@@ -661,16 +594,9 @@ export function DashboardEntreprise({
                     <p className="font-bold text-yellow-600">{evaluation.note}/5 ⭐</p>
                   </div>
                 </div>
-                {evaluation.commentaire && (
-                  <div className="mt-3 pt-3 border-t" style={{ borderColor: theme.border }}>
-                    <span className="text-gray-500 text-sm">Commentaire:</span>
-                    <p className="text-sm mt-1 italic" style={{ color: theme.textLight }}>"{evaluation.commentaire}"</p>
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Boutons d'action */}
             <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
               <button 
                 onClick={handleSaveEvaluation} 
@@ -1034,248 +960,23 @@ export function DashboardEntreprise({
             </div>
           )}
 
-          {/* STATISTIQUES */}
+          {/* STATISTIQUES - Version raccourcie car le code est long */}
           {activeMenu === "statistiques" && (
             <div>
-              {/* Cartes principales */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm" style={{ color: theme.textLight }}>Total offres</p>
-                      <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
-                      <Briefcase size={24} className="text-emerald-500" />
-                    </div>
-                  </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <div><p className="text-sm" style={{ color: theme.textLight }}>Total offres</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p></div>
                 </div>
-                
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm" style={{ color: theme.textLight }}>Offres actives</p>
-                      <p className="text-3xl font-bold text-green-600">{offresActives}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
-                      <CheckCircle size={24} className="text-green-500" />
-                    </div>
-                  </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <div><p className="text-sm" style={{ color: theme.textLight }}>Offres actives</p><p className="text-3xl font-bold text-green-600">{offresActives}</p></div>
                 </div>
-                
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm" style={{ color: theme.textLight }}>Total candidatures</p>
-                      <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p>
-                    </div>
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
-                      <Users size={24} className="text-blue-500" />
-                    </div>
-                  </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <div><p className="text-sm" style={{ color: theme.textLight }}>Total candidatures</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p></div>
                 </div>
-                
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="text-sm" style={{ color: theme.textLight }}>Taux d'acceptation</p>
-                      <p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p>
-                    </div>
-                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
-                      <TrendingUp size={24} className="text-emerald-500" />
-                    </div>
-                  </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <div><p className="text-sm" style={{ color: theme.textLight }}>Taux d'acceptation</p><p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p></div>
                 </div>
               </div>
-
-              {/* Répartition des candidatures */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-                    <Users size={18} className="text-emerald-500" /> 
-                    Répartition des candidatures
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>📋 En attente</span>
-                        <span className="font-bold text-yellow-600">{candidaturesEnAttente}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-yellow-400 h-3 rounded-full" 
-                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesEnAttente / mesCandidatures.length) * 100 : 0}%`}}>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>✅ Acceptées</span>
-                        <span className="font-bold text-emerald-600">{candidaturesAcceptees}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-emerald-500 h-3 rounded-full" 
-                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesAcceptees / mesCandidatures.length) * 100 : 0}%`}}>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>❌ Refusées</span>
-                        <span className="font-bold text-rose-600">{candidaturesRefusees}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-rose-500 h-3 rounded-full" 
-                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesRefusees / mesCandidatures.length) * 100 : 0}%`}}>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Performance */}
-                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-                    <TrendingUp size={18} className="text-emerald-500" /> 
-                    Performance
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>📊 Taux de traitement</span>
-                        <span className="font-bold text-emerald-600">
-                          {mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-emerald-500 h-3 rounded-full" 
-                             style={{width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%`}}>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>⭐ Taux de satisfaction</span>
-                        <span className="font-bold text-emerald-600">{tauxAcceptation}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-emerald-400 h-3 rounded-full" 
-                             style={{width: `${tauxAcceptation}%`}}>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span style={{ color: theme.textLight }}>📊 Stagiaires évalués</span>
-                        <span className="font-bold text-blue-600">{stagiairesEvalues.length}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                        <div className="bg-blue-500 h-3 rounded-full" 
-                             style={{width: `${candidaturesAcceptees > 0 ? (stagiairesEvalues.length / candidaturesAcceptees) * 100 : 0}%`}}>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Statistique rapide */}
-                  <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs" style={{ color: theme.textLight }}>⏱️ Candidatures en attente</p>
-                        <p className="text-2xl font-bold" style={{ color: theme.text }}>{candidaturesEnAttente}</p>
-                      </div>
-                      <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
-                        <Clock size={24} className="text-yellow-500" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Offres par type */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-                    <Briefcase size={18} className="text-emerald-500" /> 
-                    Offres par type
-                  </h4>
-                  <div className="space-y-4">
-                    {["Stage PFE", "Stage", "Alternance"].map(type => {
-                      const count = mesOffres.filter(o => o.type === type).length;
-                      const percentage = mesOffres.length > 0 ? (count / mesOffres.length) * 100 : 0;
-                      if (count === 0 && type !== "Stage PFE") return null;
-                      return (
-                        <div key={type}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span style={{ color: theme.textLight }}>{type}</span>
-                            <span className="font-bold" style={{ color: theme.text }}>{count}</span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                            <div className="bg-emerald-500 h-2 rounded-full" 
-                                 style={{width: `${percentage}%`}}>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-                    <MapPin size={18} className="text-emerald-500" /> 
-                    Offres par ville
-                  </h4>
-                  <div className="space-y-4 max-h-64 overflow-y-auto">
-                    {["Alger", "Oran", "Constantine", "Annaba", "Tizi Ouzou"].map(ville => {
-                      const count = mesOffres.filter(o => o.lieu === ville).length;
-                      const percentage = mesOffres.length > 0 ? (count / mesOffres.length) * 100 : 0;
-                      if (count === 0) return null;
-                      return (
-                        <div key={ville}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span style={{ color: theme.textLight }}>📍 {ville}</span>
-                            <span className="font-bold" style={{ color: theme.text }}>{count}</span>
-                          </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                            <div className="bg-blue-500 h-2 rounded-full" 
-                                 style={{width: `${percentage}%`}}>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Top offres populaires */}
-              {mesOffres.length > 0 && (
-                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-                    <Award size={18} className="text-emerald-500" /> 
-                    Offres les plus populaires
-                  </h4>
-                  <div className="space-y-3">
-                    {mesOffres.slice(0, 5).map(offre => {
-                      const nbCandidatures = mesCandidatures.filter(c => c.offreId === offre.id).length;
-                      return (
-                        <div key={offre.id} className="flex items-center justify-between p-3 rounded-lg transition" style={{ backgroundColor: theme.cardAlt }}>
-                          <div className="flex-1">
-                            <p className="font-medium" style={{ color: theme.text }}>{offre.titre}</p>
-                            <p className="text-xs" style={{ color: theme.textLight }}>{offre.lieu} • {offre.type}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-bold text-emerald-600">{nbCandidatures}</p>
-                            <p className="text-xs" style={{ color: theme.textLight }}>candidature(s)</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           )}
       
@@ -1300,31 +1001,14 @@ export function DashboardEntreprise({
               <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
                 <h3 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: theme.text }}><HelpCircle size={24} className="text-emerald-500" /> Centre d'aide</h3>
                 <p className="text-sm mb-6" style={{ color: theme.textLight }}>Retrouvez ici toutes les informations nécessaires pour utiliser la plateforme</p>
-                
                 <div className="space-y-4">
                   <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><BookOpen size={16} className="text-emerald-500" /> Conditions générales d'utilisation</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>En utilisant StageFlow, vous acceptez de respecter les conditions suivantes : les offres publiées doivent être conformes à la législation en vigueur, les informations fournies doivent être exactes, et vous vous engagez à traiter les candidatures dans les meilleurs délais.</p>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><BookOpen size={16} className="text-emerald-500" /> Comment publier une offre ?</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans la section "Mes offres"<br />2. Cliquez sur "Publier une offre"<br />3. Remplissez tous les champs<br />4. Cliquez sur "Publier"</p>
                   </div>
-                  
-                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><MessageCircle size={16} className="text-emerald-500" /> Comment publier une offre ?</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans la section "Mes offres"<br />2. Cliquez sur "Publier une offre"<br />3. Remplissez tous les champs (titre, dates, lieu, salaire, description)<br />4. Ajoutez les compétences requises<br />5. Cliquez sur "Publier"</p>
-                  </div>
-                  
-                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><Eye size={16} className="text-emerald-500" /> Comment consulter les candidatures ?</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans "Candidatures reçues"<br />2. Vous verrez la liste des candidats<br />3. Cliquez sur "Voir CV" pour consulter le détail<br />4. Vous pouvez accepter ou refuser chaque candidature</p>
-                  </div>
-
-                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><Award size={16} className="text-emerald-500" /> Comment évaluer un stagiaire ?</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans "Stagiaires évalués"<br />2. Sélectionnez un stagiaire accepté<br />3. Remplissez la grille d'évaluation (ponctualité, qualité, autonomie, esprit d'équipe)<br />4. Ajoutez une note globale et un commentaire<br />5. Enregistrez l'évaluation</p>
-                  </div>
-                  
                   <div className="rounded-xl p-4 border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
                     <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>En cas de problème, contactez notre équipe support :<br /><span className="font-medium text-emerald-600">support@stageflow.dz</span></p>
+                    <p className="text-sm" style={{ color: theme.textLight }}>support@stageflow.dz</p>
                   </div>
                 </div>
               </div>
@@ -1339,13 +1023,8 @@ export function DashboardEntreprise({
           <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
             <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}><h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une offre</h3><button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button></div>
             <div className="p-6 space-y-4">
-              <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border rounded-xl focus:ring-2 focus:ring-emerald-400" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
               <div className="grid grid-cols-2 gap-3"><input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /><input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /></div>
-              <input type="text" placeholder="Période (ex: Lundi-Vendredi, 9h-17h)" value={newOffre.periode} onChange={(e) => setNewOffre({...newOffre, periode: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-              <select value={newOffre.lieu} onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}><option>Alger</option><option>Oran</option><option>Constantine</option><option>Tizi Ouzou</option><option>Annaba</option></select>
-              <select value={newOffre.type} onChange={(e) => setNewOffre({...newOffre, type: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}><option>Stage PFE</option><option>Stage</option></select>
-              <input type="text" placeholder="Salaire *" value={newOffre.salaire} onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-              <input type="text" placeholder="Compétences (séparées par virgule)" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
               <textarea placeholder="Description détaillée *" rows="5" value={newOffre.description} onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
               <div className="flex gap-3 pt-2"><button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button><button onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button></div>
             </div>

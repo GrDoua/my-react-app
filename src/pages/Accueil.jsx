@@ -1,29 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Star, User, Briefcase, ShieldCheck, CheckCircle, Mail, Phone, MapPin, Award, TrendingUp, Moon, Sun } from "lucide-react";
+import { useState } from 'react';
+import { Star, User, Briefcase, ShieldCheck, CheckCircle, Mail, Phone, MapPin, Award, TrendingUp } from "lucide-react";
 
-export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
+export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage, darkMode }) {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState({});
-  const [darkMode, setDarkMode] = useState(false);
-
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      setDarkMode(true);
-    }
-  }, []);
-
-  // Save to localStorage whenever darkMode changes
-  useEffect(() => {
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
 
   const validate = () => {
     let newErrors = {};
@@ -55,34 +37,9 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
     }
   };
 
-  // Theme colors - IMPROVED CONTRAST
-  const theme = {
-    bg: darkMode ? '#111827' : '#ffffff',
-    text: darkMode ? '#f3f4f6' : '#1f2937',        // changed from gray to dark gray/black
-    textLight: darkMode ? '#9ca3af' : '#4b5563',   // for secondary text
-    card: darkMode ? '#1f2937' : '#ffffff',
-    cardAlt: darkMode ? '#374151' : '#f3f4f6',
-    gradient: darkMode ? 'from-gray-800 via-gray-900 to-gray-800' : 'from-blue-50 via-indigo-50 to-yellow-50',
-    footer: darkMode ? '#000000' : '#111827',
-    border: darkMode ? '#374151' : '#e5e7eb',
-    inputBg: darkMode ? '#374151' : '#ffffff',
-  };
-
   return (
-    <div style={{ backgroundColor: theme.bg, color: theme.text, minHeight: '100vh' }}>
-      {/* Dark mode toggle button */}
-      <div className="fixed top-20 right-4 z-50">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-          style={{ backgroundColor: darkMode ? '#374151' : '#e5e7eb' }}
-          aria-label="Toggle dark mode"
-        >
-          {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
-        </button>
-      </div>
-
-      {/* Hero Section */}
+    <div className={darkMode ? 'dark' : ''}>
+      {/* Hero Section avec overlay adapté */}
       <div className="relative overflow-hidden py-20 px-4">
         <div className="absolute inset-0">
           <img 
@@ -90,7 +47,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
             alt="background" 
             className="w-full h-full object-cover" 
           />
-          <div className="absolute inset-0" style={{ backgroundColor: darkMode ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }}></div>
+          <div className={`absolute inset-0 ${darkMode ? 'bg-black/70' : 'bg-black/40'}`}></div>
         </div>
         <div className="relative max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10">
           <div className="text-white max-w-xl">
@@ -112,78 +69,78 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
         </div>
       </div>
       
-      {/* Stats Section */}
-      <div className="py-12 px-4" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
+      {/* Section statistiques */}
+      <div className={`py-12 px-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-5xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div className="group transform transition-all duration-300 hover:scale-110 hover:-translate-y-2">
               <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">1000+</div>
-              <div style={{ color: theme.textLight }}>Offres</div>
+              <div className={`${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>Offres</div>
             </div>
             <div className="group transform transition-all duration-300 hover:scale-110 hover:-translate-y-2">
               <div className="text-3xl md:text-4xl font-bold text-indigo-600 mb-2">500+</div>
-              <div style={{ color: theme.textLight }}>Entreprises</div>
+              <div className={`${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>Entreprises</div>
             </div>
             <div className="group transform transition-all duration-300 hover:scale-110 hover:-translate-y-2">
               <div className="text-3xl md:text-4xl font-bold text-blue-600 mb-2">3000+</div>
-              <div style={{ color: theme.textLight }}>Étudiants</div>
+              <div className={`${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>Étudiants</div>
             </div>
             <div className="group transform transition-all duration-300 hover:scale-110 hover:-translate-y-2">
               <div className="text-3xl md:text-4xl font-bold text-indigo-600 mb-2">95%</div>
-              <div style={{ color: theme.textLight }}>Satisfaction</div>
+              <div className={`${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>Satisfaction</div>
             </div>
           </div>
         </div>
       </div>
       
-      {/* Features Section */}
-      <div className={`py-16 px-4 bg-gradient-to-br ${theme.gradient} transition-colors duration-300`}>
+      {/* Section fonctionnalités */}
+      <div className={`py-16 px-4 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-yellow-50'}`}>
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4" style={{ color: theme.text }}>Fonctionnalités</h2>
-          <p className="text-center mb-12" style={{ color: theme.textLight }}>Tout ce dont vous avez besoin pour réussir</p>
+          <h2 className={`text-3xl md:text-4xl font-bold text-center mb-4 ${darkMode ? 'text-white' : ''}`}>Fonctionnalités</h2>
+          <p className={`text-center mb-12 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tout ce dont vous avez besoin pour réussir</p>
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group" style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}` }}>
+            <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white'} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group`}>
               <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 group-hover:rotate-6">
                 <User className="text-white" size={28} />
               </div>
-              <h3 className="text-xl text-center font-bold mb-2" style={{ color: theme.text }}>Espace Étudiant</h3>
-              <p className="text-center" style={{ color: theme.textLight }}>Créez votre CV et postulez facilement</p>
+              <h3 className="text-xl text-center font-bold mb-2">Espace Étudiant</h3>
+              <p className={`text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Créez votre CV et postulez facilement</p>
             </div>
-            <div className="p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group" style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}` }}>
+            <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white'} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group`}>
               <div className="w-16 h-16 bg-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 group-hover:rotate-6">
                 <Briefcase className="text-white" size={28} />
               </div>
-              <h3 className="text-xl text-center font-bold mb-2" style={{ color: theme.text }}>Espace Entreprise</h3>
-              <p className="text-center" style={{ color: theme.textLight }}>Publiez vos offres gratuitement</p>
+              <h3 className="text-xl text-center font-bold mb-2">Espace Entreprise</h3>
+              <p className={`text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Publiez vos offres gratuitement</p>
             </div>
-            <div className="p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group" style={{ backgroundColor: theme.card, border: `1px solid ${theme.border}` }}>
+            <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white'} p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-3 transform group`}>
               <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-all duration-300 group-hover:rotate-6">
                 <ShieldCheck className="text-white" size={28} />
               </div>
-              <h3 className="text-xl text-center font-bold mb-2" style={{ color: theme.text }}>Offres Vérifiées</h3>
-              <p className="text-center" style={{ color: theme.textLight }}>Qualité et sécurité garanties</p>
+              <h3 className="text-xl text-center font-bold mb-2">Offres Vérifiées</h3>
+              <p className={`text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Qualité et sécurité garanties</p>
             </div>
           </div>
         </div>
       </div>
       
-      {/* About Section */}
-      <section className="py-20 px-6" style={{ backgroundColor: theme.card }}>
+      {/* Section À propos */}
+      <section className={`py-20 px-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-4xl font-bold mb-6 text-blue-700">À propos de Stag.io</h2>
-              <p className="text-lg leading-relaxed mb-4" style={{ color: theme.text }}>
+              <h2 className={`text-4xl font-bold mb-6 ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>À propos de Stag.io</h2>
+              <p className={`text-lg leading-relaxed mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Stag.io est la première plateforme algérienne dédiée à la mise en relation entre étudiants et entreprises pour les stages.
               </p>
-              <p className="text-lg leading-relaxed mb-6" style={{ color: theme.text }}>
+              <p className={`text-lg leading-relaxed mb-6 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Notre mission est de simplifier la recherche de stages et d'accompagner les jeunes talents vers leur réussite professionnelle.
               </p>
-              <div className="p-6 rounded-2xl" style={{ backgroundColor: theme.cardAlt, border: `1px solid ${theme.border}` }}>
-                <h3 className="text-xl font-bold mb-3" style={{ color: theme.text }}>Pourquoi nous choisir ?</h3>
+              <div className={`${darkMode ? 'bg-gray-700' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} p-6 rounded-2xl`}>
+                <h3 className={`text-xl font-bold mb-3 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Pourquoi nous choisir ?</h3>
                 <ul className="space-y-2">
                   {["100% Gratuit pour les étudiants", "Offres vérifiées", "Support réactif 7j/7", "Accès illimité"].map((item, idx) => (
-                    <li key={idx} className="flex items-center gap-2" style={{ color: theme.text }}>
+                    <li key={idx} className={`flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       <CheckCircle size={18} className="text-emerald-500" />
                       {item}
                     </li>
@@ -203,25 +160,20 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
         </div>
       </section>
       
-      {/* Contact Section */}
-      <div className={`py-16 px-4 bg-gradient-to-br ${theme.gradient} transition-colors duration-300`}>
+      {/* Section Contact */}
+      <div className={`py-16 px-4 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-yellow-50'}`}>
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-4" style={{ color: theme.text }}>Contactez-nous</h2>
-          <p className="text-center mb-12" style={{ color: theme.textLight }}>Une question ? Notre équipe est là pour vous aider</p>
+          <h2 className={`text-3xl font-bold text-center mb-4 ${darkMode ? 'text-white' : ''}`}>Contactez-nous</h2>
+          <p className={`text-center mb-12 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Une question ? Notre équipe est là pour vous aider</p>
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="p-6 rounded-xl" style={{ backgroundColor: theme.cardAlt, border: `1px solid ${theme.border}` }}>
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} p-6 rounded-xl`}>
               <div>
                 <input 
                   type="text" 
                   placeholder="Votre nom" 
                   value={nom} 
                   onChange={(e) => setNom(e.target.value)} 
-                  className="w-full p-3 mb-1 border rounded-lg"
-                  style={{ 
-                    backgroundColor: theme.inputBg,
-                    color: theme.text,
-                    borderColor: errors.nom ? 'red' : theme.border
-                  }}
+                  className={`w-full p-3 mb-1 border rounded-lg ${darkMode ? 'bg-gray-700 text-white border-gray-600' : ''} ${errors.nom ? "border-red-500" : darkMode ? 'border-gray-600' : ''}`} 
                 />
                 {errors.nom && <p className="text-red-500 text-sm mb-2">{errors.nom}</p>}
               </div>
@@ -231,12 +183,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
                   placeholder="Votre email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
-                  className="w-full p-3 mb-1 border rounded-lg"
-                  style={{ 
-                    backgroundColor: theme.inputBg,
-                    color: theme.text,
-                    borderColor: errors.email ? 'red' : theme.border
-                  }}
+                  className={`w-full p-3 mb-1 border rounded-lg ${darkMode ? 'bg-gray-700 text-white border-gray-600' : ''} ${errors.email ? "border-red-500" : darkMode ? 'border-gray-600' : ''}`} 
                 />
                 {errors.email && <p className="text-red-500 text-sm mb-2">{errors.email}</p>}
               </div>
@@ -246,39 +193,34 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
                   rows="4" 
                   value={message} 
                   onChange={(e) => setMessage(e.target.value)} 
-                  className="w-full p-3 mb-1 border rounded-lg"
-                  style={{ 
-                    backgroundColor: theme.inputBg,
-                    color: theme.text,
-                    borderColor: errors.message ? 'red' : theme.border
-                  }}
+                  className={`w-full p-3 mb-1 border rounded-lg ${darkMode ? 'bg-gray-700 text-white border-gray-600' : ''} ${errors.message ? "border-red-500" : darkMode ? 'border-gray-600' : ''}`} 
                 />
                 {errors.message && <p className="text-red-500 text-sm mb-2">{errors.message}</p>}
               </div>
-              <button onClick={handleSubmit} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+              <button onClick={handleSubmit} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
                 Envoyer
               </button>
             </div>
             <div className="space-y-4">
-              <div className="p-4 rounded-xl flex items-center gap-4" style={{ backgroundColor: theme.cardAlt, border: `1px solid ${theme.border}` }}>
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} p-4 rounded-xl flex items-center gap-4 transition-colors`}>
                 <Mail size={24} className="text-blue-600" />
                 <div>
-                  <p className="font-semibold" style={{ color: theme.text }}>Email</p>
-                  <p style={{ color: theme.textLight }}>contact@stag.io</p>
+                  <p className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Email</p>
+                  <p className={darkMode ? 'text-gray-400' : ''}>contact@stag.io</p>
                 </div>
               </div>
-              <div className="p-4 rounded-xl flex items-center gap-4" style={{ backgroundColor: theme.cardAlt, border: `1px solid ${theme.border}` }}>
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} p-4 rounded-xl flex items-center gap-4 transition-colors`}>
                 <Phone size={24} className="text-indigo-600" />
                 <div>
-                  <p className="font-semibold" style={{ color: theme.text }}>Téléphone</p>
-                  <p style={{ color: theme.textLight }}>+213 123 456 789</p>
+                  <p className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Téléphone</p>
+                  <p className={darkMode ? 'text-gray-400' : ''}>+213 123 456 789</p>
                 </div>
               </div>
-              <div className="p-4 rounded-xl flex items-center gap-4" style={{ backgroundColor: theme.cardAlt, border: `1px solid ${theme.border}` }}>
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-gray-50'} p-4 rounded-xl flex items-center gap-4 transition-colors`}>
                 <MapPin size={24} className="text-blue-700" />
                 <div>
-                  <p className="font-semibold" style={{ color: theme.text }}>Adresse</p>
-                  <p style={{ color: theme.textLight }}>Constantine, Algérie</p>
+                  <p className={`font-semibold ${darkMode ? 'text-white' : ''}`}>Adresse</p>
+                  <p className={darkMode ? 'text-gray-400' : ''}>Constantine, Algérie</p>
                 </div>
               </div>
             </div>
@@ -287,7 +229,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
       </div>
 
       {/* Footer */}
-      <footer className="py-12 px-6" style={{ backgroundColor: theme.footer, color: 'white' }}>
+      <footer className={`${darkMode ? 'bg-gray-950' : 'bg-gray-900'} text-white py-12 px-6`}>
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -295,7 +237,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
                 <div className="w-8 h-8 bg-blue-700 rounded-lg flex items-center justify-center">
                   <TrendingUp size={16} className="text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-blue-400">Stag.io</h3>
+                <h3 className="text-xl font-bold text-blue-500">Stag.io</h3>
               </div>
               <p className="text-gray-400 text-sm">La plateforme #1 pour trouver votre stage idéal en Algérie</p>
             </div>
@@ -303,12 +245,21 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
               <h4 className="font-semibold mb-4">Liens rapides</h4>
               <ul className="space-y-2 text-gray-400 text-sm">
                 <li>
-                  <button onClick={() => handleNavigation("accueil")} className="hover:text-white transition cursor-pointer">
+                  <button 
+                    onClick={() => handleNavigation("accueil")} 
+                    className="hover:text-white transition cursor-pointer"
+                  >
                     Accueil
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setPage("offres"); }} className="hover:text-white transition cursor-pointer">
+                  <button 
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      setPage("offres");
+                    }} 
+                    className="hover:text-white transition cursor-pointer"
+                  >
                     Offres
                   </button>
                 </li>
@@ -332,7 +283,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage }) {
               </div>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
+          <div className={`border-t ${darkMode ? 'border-gray-800' : 'border-gray-800'} pt-8 text-center text-gray-400 text-sm`}>
             <p>© 2026 Stag.io - Tous droits réservés</p>
           </div>
         </div>

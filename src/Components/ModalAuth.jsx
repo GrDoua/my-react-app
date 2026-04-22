@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Eye, EyeOff, Building2, GraduationCap } from "lucide-react";
 
-export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
+export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMode }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nom, setNom] = useState("");
@@ -12,6 +12,18 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [currentType, setCurrentType] = useState(type);
+
+  // Thème basé sur darkMode
+  const theme = {
+    bg: darkMode ? '#1f2937' : '#ffffff',
+    border: darkMode ? '#374151' : '#e5e7eb',
+    text: darkMode ? '#f3f4f6' : '#1f2937',
+    textLight: darkMode ? '#9ca3af' : '#6b7280',
+    inputBg: darkMode ? '#374151' : '#ffffff',
+    inputBorder: darkMode ? '#4b5563' : '#e5e7eb',
+    hoverBg: darkMode ? '#374151' : '#f3f4f6',
+    iconColor: darkMode ? '#60a5fa' : '#2563eb'
+  };
 
   const validateLogin = () => {
     let newErrors = {};
@@ -65,19 +77,28 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-md w-full transform transition-all duration-300 shadow-lg">
-        <div className="flex justify-between items-center p-4 border-b">
+      <div 
+        className="rounded-xl max-w-md w-full transform transition-all duration-300 shadow-lg"
+        style={{ backgroundColor: theme.bg }}
+      >
+        <div className="flex justify-between items-center p-4 border-b" style={{ borderColor: theme.border }}>
           <div className="flex items-center gap-2">
             {userType === "etudiant" ? (
-              <GraduationCap size={22} className="text-blue-600" />
+              <GraduationCap size={22} style={{ color: theme.iconColor }} />
             ) : (
-              <Building2 size={22} className="text-blue-600" />
+              <Building2 size={22} style={{ color: theme.iconColor }} />
             )}
-            <h3 className="font-bold text-lg text-gray-800">
+            <h3 className="font-bold text-lg" style={{ color: theme.text }}>
               {userType === "etudiant" ? "Espace Étudiant" : "Espace Entreprise"}
             </h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition">
+          <button 
+            onClick={onClose} 
+            className="p-1 rounded-full transition"
+            style={{ color: theme.textLight }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.hoverBg}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
             <X size={20} />
           </button>
         </div>
@@ -90,8 +111,13 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
               value={nom}
               onChange={(e) => setNom(e.target.value)}
               className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                errors.nom ? "border-red-500" : "border-gray-200"
+                errors.nom ? "border-red-500" : ""
               }`}
+              style={{ 
+                backgroundColor: theme.inputBg, 
+                color: theme.text, 
+                borderColor: errors.nom ? '#ef4444' : theme.inputBorder 
+              }}
             />
           )}
 
@@ -101,8 +127,13 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-              errors.email ? "border-red-500" : "border-gray-200"
+              errors.email ? "border-red-500" : ""
             }`}
+            style={{ 
+              backgroundColor: theme.inputBg, 
+              color: theme.text, 
+              borderColor: errors.email ? '#ef4444' : theme.inputBorder 
+            }}
           />
 
           <div className="relative">
@@ -112,13 +143,21 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className={`w-full p-2 border rounded-lg pr-10 focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                errors.password ? "border-red-500" : "border-gray-200"
+                errors.password ? "border-red-500" : ""
               }`}
+              style={{ 
+                backgroundColor: theme.inputBg, 
+                color: theme.text, 
+                borderColor: errors.password ? '#ef4444' : theme.inputBorder 
+              }}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 transition"
+              style={{ color: theme.textLight }}
+              onMouseEnter={(e) => e.currentTarget.style.color = theme.text}
+              onMouseLeave={(e) => e.currentTarget.style.color = theme.textLight}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -132,8 +171,13 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
                 value={filiere}
                 onChange={(e) => setFiliere(e.target.value)}
                 className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                  errors.filiere ? "border-red-500" : "border-gray-200"
+                  errors.filiere ? "border-red-500" : ""
                 }`}
+                style={{ 
+                  backgroundColor: theme.inputBg, 
+                  color: theme.text, 
+                  borderColor: errors.filiere ? '#ef4444' : theme.inputBorder 
+                }}
               />
               <input
                 type="text"
@@ -141,15 +185,25 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
                 value={universite}
                 onChange={(e) => setUniversite(e.target.value)}
                 className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                  errors.universite ? "border-red-500" : "border-gray-200"
+                  errors.universite ? "border-red-500" : ""
                 }`}
+                style={{ 
+                  backgroundColor: theme.inputBg, 
+                  color: theme.text, 
+                  borderColor: errors.universite ? '#ef4444' : theme.inputBorder 
+                }}
               />
               <input
                 type="text"
                 placeholder="Compétences (séparées par des virgules)"
                 value={competences}
                 onChange={(e) => setCompetences(e.target.value)}
-                className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                style={{ 
+                  backgroundColor: theme.inputBg, 
+                  color: theme.text, 
+                  borderColor: theme.inputBorder 
+                }}
               />
             </>
           )}
@@ -161,8 +215,13 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
               value={secteur}
               onChange={(e) => setSecteur(e.target.value)}
               className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                errors.secteur ? "border-red-500" : "border-gray-200"
+                errors.secteur ? "border-red-500" : ""
               }`}
+              style={{ 
+                backgroundColor: theme.inputBg, 
+                color: theme.text, 
+                borderColor: errors.secteur ? '#ef4444' : theme.inputBorder 
+              }}
             />
           )}
 
@@ -181,13 +240,14 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
           </button>
 
           {currentType === "login" && (
-            <div className="text-center pt-2 border-t">
-              <p className="text-gray-600 text-sm">
+            <div className="text-center pt-2 border-t" style={{ borderColor: theme.border }}>
+              <p className="text-sm" style={{ color: theme.textLight }}>
                 Pas encore de compte ?{" "}
                 <button
                   type="button"
                   onClick={() => setCurrentType("register")}
-                  className="text-blue-600 hover:text-blue-700 font-semibold hover:underline"
+                  className="font-semibold hover:underline transition"
+                  style={{ color: theme.iconColor }}
                 >
                   Inscrivez-vous
                 </button>
@@ -196,13 +256,14 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType }) {
           )}
 
           {currentType === "register" && (
-            <div className="text-center pt-2 border-t">
-              <p className="text-gray-600 text-sm">
+            <div className="text-center pt-2 border-t" style={{ borderColor: theme.border }}>
+              <p className="text-sm" style={{ color: theme.textLight }}>
                 Déjà un compte ?{" "}
                 <button
                   type="button"
                   onClick={() => setCurrentType("login")}
-                  className="text-blue-600 hover:text-blue-700 font-semibold hover:underline"
+                  className="font-semibold hover:underline transition"
+                  style={{ color: theme.iconColor }}
                 >
                   Connectez-vous
                 </button>

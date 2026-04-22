@@ -6,11 +6,11 @@ import {
   Search, Filter, Trash2, FileText, MessageCircle, HelpCircle, BookOpen,
   ExternalLink, DollarSign, Star, Upload, Download, FilePlus, Send,
   PieChart, Activity, ArrowUp, ArrowDown, MoreHorizontal, Zap,
-  Target, Calendar as CalendarIcon, Clock as ClockIcon, Moon, Sun
+  Target, Calendar as CalendarIcon, Clock as ClockIcon
 } from "lucide-react";
 
 // ============================================
-// COMPOSANT DASHBOARD ADMIN PROFESSIONNEL
+// COMPOSANT DASHBOARD ADMIN AVEC MODE SOMBRE SYNCHRONISÉ
 // ============================================
 export function DashboardAdmin({ 
   offres = [], 
@@ -20,39 +20,9 @@ export function DashboardAdmin({
   onUpdateCandidature, 
   onLogout, 
   onUpdateProfil, 
-  onChangePassword 
+  onChangePassword,
+  darkMode  // ← Reçoit darkMode de App.jsx
 }) {
-  // ============================================
-  // DARK MODE STATE
-  // ============================================
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme === "dark") {
-      setDarkMode(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
-
-  const theme = {
-    bg: darkMode ? '#111827' : '#f3f4f6',
-    text: darkMode ? '#f3f4f6' : '#1f2937',
-    textLight: darkMode ? '#9ca3af' : '#4b5563',
-    card: darkMode ? '#1f2937' : '#ffffff',
-    cardAlt: darkMode ? '#374151' : '#f9fafb',
-    sidebar: darkMode ? '#111827' : '#111827',
-    border: darkMode ? '#374151' : '#e5e7eb',
-    inputBg: darkMode ? '#374151' : '#ffffff',
-  };
-
   // États principaux
   const [activeMenu, setActiveMenu] = useState("profil");
   const [searchTerm, setSearchTerm] = useState("");
@@ -89,6 +59,18 @@ export function DashboardAdmin({
 
   // États pour les graphiques
   const [selectedPeriode, setSelectedPeriode] = useState("mois");
+
+  // Thème basé sur darkMode
+  const theme = {
+    bg: darkMode ? '#111827' : '#f3f4f6',
+    text: darkMode ? '#f3f4f6' : '#1f2937',
+    textLight: darkMode ? '#9ca3af' : '#4b5563',
+    card: darkMode ? '#1f2937' : '#ffffff',
+    cardAlt: darkMode ? '#374151' : '#f9fafb',
+    sidebar: darkMode ? '#111827' : '#111827',
+    border: darkMode ? '#374151' : '#e5e5e5',
+    inputBg: darkMode ? '#374151' : '#ffffff',
+  };
 
   const stats = useMemo(() => ({
     totalOffres: offres?.length || 0,
@@ -275,16 +257,6 @@ export function DashboardAdmin({
 
   return (
     <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
-      {/* Dark mode toggle button */}
-      <div className="fixed top-20 right-4 z-50">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-          style={{ backgroundColor: darkMode ? '#374151' : '#e5e7eb' }}
-        >
-          {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
-        </button>
-      </div>
 
       {/* NOTIFICATION */}
       {notification.show && (
