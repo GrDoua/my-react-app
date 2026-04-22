@@ -1,14 +1,15 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   Briefcase, Users, BarChart3, Building, TrendingUp, Calendar,
   LogOut, Plus, Trash2, User, Key, Save, Edit2, X, CheckCircle, Clock,
   FileText, Upload, Download, FilePlus, Eye, Phone, MapPin, Mail, Search,
   Award, AlertCircle, Check, XCircle, HelpCircle,
-  MessageCircle, BookOpen, ExternalLink, DollarSign
+  MessageCircle, BookOpen, ExternalLink, DollarSign, Star, Camera, Globe,
+  PieChart, Tag, Moon, Sun
 } from "lucide-react";
 
 // ============================================
-// COMPOSANT DASHBOARD ENTREPRISE PROFESSIONNEL
+// COMPOSANT DASHBOARD ENTREPRISE (VERSION VERTE)
 // ============================================
 export function DashboardEntreprise({ 
   entreprise, 
@@ -20,8 +21,44 @@ export function DashboardEntreprise({
   onUpdateProfil, 
   onChangePassword,
   onAccepterCandidat,
-  onRefuserCandidat
+  onRefuserCandidat,
+  onSaveEvaluation
 }) {
+  // ============================================
+  // DARK MODE STATE
+  // ============================================
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      setDarkMode(true);
+    }
+  }, []);
+
+  // Save to localStorage whenever darkMode changes
+  useEffect(() => {
+    localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  // Theme colors
+  const theme = {
+    bg: darkMode ? '#111827' : '#f3f4f6',
+    text: darkMode ? '#f3f4f6' : '#1f2937',
+    textLight: darkMode ? '#9ca3af' : '#4b5563',
+    card: darkMode ? '#1f2937' : '#ffffff',
+    cardAlt: darkMode ? '#374151' : '#f9fafb',
+    sidebar: darkMode ? '#111827' : '#111827',
+    border: darkMode ? '#374151' : '#e5e7eb',
+    inputBg: darkMode ? '#374151' : '#ffffff',
+    inputBorder: darkMode ? '#4b5563' : '#d1d5db',
+  };
+
   // États principaux
   const [activeMenu, setActiveMenu] = useState("profil");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -31,15 +68,27 @@ export function DashboardEntreprise({
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatut, setFilterStatut] = useState("Tous");
   
-  // État local des candidatures pour mise à jour immédiate
+  // États pour les évaluations
+  const [showEvaluationModal, setShowEvaluationModal] = useState(false);
+  const [selectedStagiaire, setSelectedStagiaire] = useState(null);
+  const [evaluation, setEvaluation] = useState({
+    ponctualite: 15,
+    qualiteTravail: 15,
+    autonomie: 15,
+    espritEquipe: 15,
+    note: 4,
+    commentaire: "",
+    progression: ""
+  });
+  
+  // État local des candidatures
   const [localCandidatures, setLocalCandidatures] = useState(candidatures);
   
-  // Mettre à jour localCandidatures quand candidatures change
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalCandidatures(candidatures);
   }, [candidatures]);
   
-  // États pour le profil de l'entreprise
+  // États pour le profil
   const [isEditing, setIsEditing] = useState(false);
   const [entrepriseProfil, setEntrepriseProfil] = useState({
     nom: entreprise?.nom || "",
@@ -53,7 +102,7 @@ export function DashboardEntreprise({
   });
   const [logoPreview, setLogoPreview] = useState(entreprise?.logo || null);
   
-  // États pour le changement de mot de passe
+  // États pour le mot de passe
   const [passwordData, setPasswordData] = useState({
     ancienMotDePasse: "",
     nouveauMotDePasse: "",
@@ -82,7 +131,6 @@ export function DashboardEntreprise({
     return localCandidatures.filter(c => offresIds.includes(c.offreId));
   }, [localCandidatures, mesOffres]);
 
-  // Statistiques
   const offresActives = useMemo(() => {
     return mesOffres.filter(o => {
       if (!o.dateFin) return true;
@@ -95,7 +143,6 @@ export function DashboardEntreprise({
   const candidaturesRefusees = useMemo(() => mesCandidatures.filter(c => c.statut === "refusee").length, [mesCandidatures]);
   const tauxAcceptation = useMemo(() => mesCandidatures.length > 0 ? Math.round((candidaturesAcceptees / mesCandidatures.length) * 100) : 0, [mesCandidatures, candidaturesAcceptees]);
 
-  // Filtrage des candidatures
   const candidaturesFiltrees = useMemo(() => {
     let filtered = [...mesCandidatures];
     if (filterStatut !== "Tous") {
@@ -111,17 +158,18 @@ export function DashboardEntreprise({
     return filtered;
   }, [mesCandidatures, filterStatut, searchTerm]);
 
+  const stagiairesEvalues = useMemo(() => {
+    return mesCandidatures.filter(c => c.statut === "acceptee" && c.evaluation);
+  }, [mesCandidatures]);
+
   // ============================================
-  // FONCTIONS UTILITAIRES
+  // FONCTIONS
   // ============================================
   const showNotification = useCallback((type, message) => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
   }, []);
 
-  // ============================================
-  // GESTION DU PROFIL
-  // ============================================
   const handleInputChange = useCallback((e) => {
     setEntrepriseProfil(prev => ({ ...prev, [e.target.name]: e.target.value }));
   }, []);
@@ -144,9 +192,6 @@ export function DashboardEntreprise({
     }
   }, [showNotification]);
 
-  // ============================================
-  // GESTION DES OFFRES
-  // ============================================
   const handleAddOffre = useCallback(() => {
     if (!newOffre.titre || !newOffre.salaire || !newOffre.dateCreation || !newOffre.dateFin) {
       showNotification('error', "❌ Veuillez remplir tous les champs obligatoires");
@@ -169,15 +214,11 @@ export function DashboardEntreprise({
     showNotification('success', "✅ Offre publiée avec succès");
   }, [newOffre, competenceInput, entrepriseProfil.nom, entreprise?.id, onAjouterOffre, showNotification]);
 
-  // ============================================
-  // GESTION DES CANDIDATURES (Accepter/Refuser) - CORRIGÉE
-  // ============================================
   const handleViewCV = useCallback((candidature) => {
     setSelectedCandidature(candidature);
     setShowCvModal(true);
   }, []);
 
-  // Fonction pour mettre à jour le statut localement
   const updateCandidatureStatut = useCallback((candidatureId, newStatut) => {
     setLocalCandidatures(prev => 
       prev.map(c => 
@@ -186,13 +227,19 @@ export function DashboardEntreprise({
     );
   }, []);
 
+  const updateCandidatureEvaluation = useCallback((candidatureId, evaluationData) => {
+    setLocalCandidatures(prev => 
+      prev.map(c => 
+        c.id === candidatureId ? { ...c, evaluation: evaluationData } : c
+      )
+    );
+  }, []);
+
   const handleAccepterCandidat = useCallback(async (candidature) => {
     try {
-      // Appeler la fonction du parent si elle existe
       if (onAccepterCandidat) {
         await onAccepterCandidat(candidature.id);
       }
-      // Mettre à jour le statut localement
       updateCandidatureStatut(candidature.id, "acceptee");
       showNotification('success', `✅ Candidature de ${candidature.etudiantNom} acceptée !`);
       setShowCvModal(false);
@@ -203,11 +250,9 @@ export function DashboardEntreprise({
 
   const handleRefuserCandidat = useCallback(async (candidature) => {
     try {
-      // Appeler la fonction du parent si elle existe
       if (onRefuserCandidat) {
         await onRefuserCandidat(candidature.id);
       }
-      // Mettre à jour le statut localement
       updateCandidatureStatut(candidature.id, "refusee");
       showNotification('success', `❌ Candidature de ${candidature.etudiantNom} refusée.`);
       setShowCvModal(false);
@@ -216,9 +261,25 @@ export function DashboardEntreprise({
     }
   }, [onRefuserCandidat, updateCandidatureStatut, showNotification]);
 
-  // ============================================
-  // GESTION DU MOT DE PASSE
-  // ============================================
+  const handleSaveEvaluation = useCallback(() => {
+    if (selectedStagiaire) {
+      const evaluationData = {
+        ...evaluation,
+        dateEvaluation: new Date().toLocaleDateString('fr-FR'),
+        evaluateur: entrepriseProfil.nom
+      };
+      
+      updateCandidatureEvaluation(selectedStagiaire.id, evaluationData);
+      
+      if (onSaveEvaluation) {
+        onSaveEvaluation(selectedStagiaire.id, evaluationData);
+      }
+      
+      showNotification('success', `✅ Évaluation de ${selectedStagiaire.etudiantNom} enregistrée avec succès`);
+      setShowEvaluationModal(false);
+    }
+  }, [evaluation, selectedStagiaire, updateCandidatureEvaluation, onSaveEvaluation, showNotification, entrepriseProfil.nom]);
+
   const handlePasswordChange = useCallback((e) => {
     setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
@@ -246,13 +307,11 @@ export function DashboardEntreprise({
     showNotification('success', "✅ Mot de passe changé");
   }, [passwordData, entreprise, onChangePassword, showNotification]);
 
-  // ============================================
-  // MENU ITEMS
-  // ============================================
   const menuItems = [
     { id: "profil", label: "Mon profil", icon: <User size={18} /> },
     { id: "offres", label: "Mes offres", icon: <Briefcase size={18} /> },
     { id: "candidatures", label: "Candidatures reçues", icon: <Users size={18} /> },
+    { id: "stagiaires", label: "Stagiaires évalués", icon: <Award size={18} /> },
     { id: "statistiques", label: "Statistiques", icon: <BarChart3 size={18} /> },
     { id: "changePassword", label: "Modifier mot de passe", icon: <Key size={18} /> },
     { id: "aide", label: "Conditions & Aide", icon: <HelpCircle size={18} /> },
@@ -260,8 +319,11 @@ export function DashboardEntreprise({
 
   const getMenuTitle = (id) => {
     const titles = {
-      profil: 'Mon profil', offres: 'Mes offres de stage',
-      candidatures: 'Candidatures reçues', statistiques: 'Tableau de bord',
+      profil: 'Mon profil', 
+      offres: 'Mes offres de stage',
+      candidatures: 'Candidatures reçues', 
+      stagiaires: 'Stagiaires évalués',
+      statistiques: 'Tableau de bord',
       changePassword: 'Changer le mot de passe',
       aide: 'Conditions & Aide'
     };
@@ -270,17 +332,26 @@ export function DashboardEntreprise({
 
   if (!entreprise) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center"><div className="spinner mx-auto"></div><p className="mt-4 text-gray-600">Chargement...</p></div>
+      <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: theme.bg }}>
+        <div className="text-center"><div className="spinner mx-auto"></div><p className="mt-4" style={{ color: theme.text }}>Chargement...</p></div>
       </div>
     );
   }
 
-  // ============================================
-  // RENDU PRINCIPAL
-  // ============================================
   return (
-    <div className="flex min-h-screen bg-gray-50 font-sans">
+    <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
+      {/* Dark mode toggle button */}
+      <div className="fixed top-20 right-4 z-50">
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
+          style={{ backgroundColor: darkMode ? '#374151' : '#e5e7eb' }}
+          aria-label="Toggle dark mode"
+        >
+          {darkMode ? <Sun size={24} className="text-yellow-400" /> : <Moon size={24} className="text-gray-700" />}
+        </button>
+      </div>
+
       {/* NOTIFICATION */}
       {notification.show && (
         <div className="fixed top-20 right-4 z-50 animate-slide-in">
@@ -291,56 +362,56 @@ export function DashboardEntreprise({
         </div>
       )}
 
-      {/* MODAL VISUALISATION CV CANDIDAT AVEC ACTIONS ACCEPTER/REFUSER */}
+      {/* MODAL CV */}
       {showCvModal && selectedCandidature && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-gray-800">CV de {selectedCandidature.etudiantNom}</h3>
-              <button onClick={() => setShowCvModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition"><X size={20} /></button>
+          <div className="rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: theme.card }}>
+            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+              <h3 className="text-xl font-bold" style={{ color: theme.text }}>CV de {selectedCandidature.etudiantNom}</h3>
+              <button onClick={() => setShowCvModal(false)} className="p-2 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button>
             </div>
             <div className="p-6">
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-4">
-                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2"><User size={16} className="text-emerald-600" /> Informations personnelles</h4>
+              <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: theme.cardAlt }}>
+                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><User size={16} className="text-emerald-600" /> Informations personnelles</h4>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div><span className="text-gray-500">Nom complet:</span> <span className="text-gray-800 font-medium">{selectedCandidature.etudiantNom}</span></div>
-                  <div><span className="text-gray-500">Email:</span> <span className="text-gray-800">{selectedCandidature.email}</span></div>
-                  <div><span className="text-gray-500">Téléphone:</span> <span className="text-gray-800">{selectedCandidature.telephone || "Non renseigné"}</span></div>
-                  <div><span className="text-gray-500">Postulé le:</span> <span className="text-gray-800">{selectedCandidature.date}</span></div>
+                  <div><span className="text-gray-500">Nom complet:</span> <span className="font-medium" style={{ color: theme.text }}>{selectedCandidature.etudiantNom}</span></div>
+                  <div><span className="text-gray-500">Email:</span> <span style={{ color: theme.text }}>{selectedCandidature.email}</span></div>
+                  <div><span className="text-gray-500">Téléphone:</span> <span style={{ color: theme.text }}>{selectedCandidature.telephone || "Non renseigné"}</span></div>
+                  <div><span className="text-gray-500">Postulé le:</span> <span style={{ color: theme.text }}>{selectedCandidature.date}</span></div>
                 </div>
               </div>
               
-              <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2"><Briefcase size={16} className="text-emerald-600" /> Candidature pour</h4>
-                <p><span className="text-gray-500">Offre:</span> <span className="text-gray-800 font-medium">{selectedCandidature.offreTitre}</span></p>
+              <div className="rounded-xl p-4 mb-4" style={{ backgroundColor: theme.cardAlt }}>
+                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><Briefcase size={16} className="text-emerald-600" /> Candidature pour</h4>
+                <p><span className="text-gray-500">Offre:</span> <span className="font-medium" style={{ color: theme.text }}>{selectedCandidature.offreTitre}</span></p>
                 <div className="mt-2 flex gap-2">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    selectedCandidature.statut === "acceptee" ? "bg-emerald-100 text-emerald-700" : 
-                    selectedCandidature.statut === "refusee" ? "bg-rose-100 text-rose-600" : 
-                    "bg-yellow-100 text-yellow-700"
+                    selectedCandidature.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
+                    selectedCandidature.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
+                    "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
                   }`}>
                     {selectedCandidature.statut === "acceptee" ? "Acceptée" : selectedCandidature.statut === "refusee" ? "Refusée" : "En attente"}
                   </span>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2"><FileText size={16} className="text-emerald-600" /> CV du candidat</h4>
+              <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
+                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><FileText size={16} className="text-emerald-600" /> CV du candidat</h4>
                 {selectedCandidature.cvContent ? (
-                  <pre className="text-sm text-gray-600 whitespace-pre-wrap bg-white p-4 rounded-lg max-h-96 overflow-y-auto border border-gray-100">
+                  <pre className="text-sm whitespace-pre-wrap p-4 rounded-lg max-h-96 overflow-y-auto border" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
                     {selectedCandidature.cvContent}
                   </pre>
                 ) : (
-                  <div className="text-center py-8 bg-white rounded-lg">
-                    <FileText size={48} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-gray-500 text-sm">Aucun CV disponible</p>
+                  <div className="text-center py-8 rounded-lg" style={{ backgroundColor: theme.card }}>
+                    <FileText size={48} className="mx-auto mb-2" style={{ color: theme.textLight }} />
+                    <p style={{ color: theme.textLight }}>Aucun CV disponible</p>
                   </div>
                 )}
               </div>
             </div>
             
             {selectedCandidature.statut === "en_attente" && (
-              <div className="border-t border-gray-100 p-6 flex gap-3">
+              <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
                 <button 
                   onClick={() => handleAccepterCandidat(selectedCandidature)} 
                   className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600 transition flex items-center justify-center gap-2"
@@ -357,7 +428,7 @@ export function DashboardEntreprise({
             )}
             
             {selectedCandidature.statut !== "en_attente" && (
-              <div className="border-t border-gray-100 p-6">
+              <div className="border-t p-6" style={{ borderColor: theme.border }}>
                 <button onClick={() => setShowCvModal(false)} className="w-full bg-gray-600 text-white py-3 rounded-xl font-semibold hover:bg-gray-700 transition">
                   Fermer
                 </button>
@@ -367,16 +438,268 @@ export function DashboardEntreprise({
         </div>
       )}
 
+      {/* MODAL ÉVALUATION CANDIDAT */}
+      {showEvaluationModal && selectedStagiaire && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: theme.card }}>
+            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: theme.text }}>
+                <Star size={24} className="text-yellow-500" />
+                Évaluation de {selectedStagiaire.etudiantNom}
+              </h3>
+              <button onClick={() => setShowEvaluationModal(false)} className="p-2 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} style={{ color: theme.text }} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Informations du stagiaire */}
+              <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500">Stagiaire:</span>
+                    <p className="font-semibold" style={{ color: theme.text }}>{selectedStagiaire.etudiantNom}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Offre:</span>
+                    <p className="font-semibold" style={{ color: theme.text }}>{selectedStagiaire.offreTitre}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Période:</span>
+                    <p style={{ color: theme.text }}>{selectedStagiaire.periode || "Non spécifiée"}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Date évaluation:</span>
+                    <p style={{ color: theme.text }}>{new Date().toLocaleDateString('fr-FR')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Grille d'évaluation */}
+              <div className="space-y-5">
+                <h4 className="font-semibold flex items-center gap-2" style={{ color: theme.text }}>
+                  <Award size={18} className="text-emerald-500" />
+                  Grille d'évaluation (sur 20 points)
+                </h4>
+                
+                {/* Ponctualité */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
+                      <Clock size={16} className="text-blue-500" /> Ponctualité
+                    </label>
+                    <span className="text-emerald-600 font-bold">{evaluation.ponctualite}/20</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="20" 
+                    value={evaluation.ponctualite}
+                    onChange={(e) => setEvaluation({...evaluation, ponctualite: parseInt(e.target.value)})}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{ backgroundColor: theme.border }}
+                  />
+                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
+                    <span>❌ Très irrégulier</span>
+                    <span>⚠️ Quelques retards</span>
+                    <span>✅ Toujours à l'heure</span>
+                  </div>
+                </div>
+
+                {/* Qualité du travail */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
+                      <FileText size={16} className="text-purple-500" /> Qualité du travail
+                    </label>
+                    <span className="text-emerald-600 font-bold">{evaluation.qualiteTravail}/20</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="20" 
+                    value={evaluation.qualiteTravail}
+                    onChange={(e) => setEvaluation({...evaluation, qualiteTravail: parseInt(e.target.value)})}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{ backgroundColor: theme.border }}
+                  />
+                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
+                    <span>📄 Travail non conforme</span>
+                    <span>📑 Quelques erreurs</span>
+                    <span>✨ Excellent travail</span>
+                  </div>
+                </div>
+
+                {/* Autonomie */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
+                      <User size={16} className="text-orange-500" /> Autonomie
+                    </label>
+                    <span className="text-emerald-600 font-bold">{evaluation.autonomie}/20</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="20" 
+                    value={evaluation.autonomie}
+                    onChange={(e) => setEvaluation({...evaluation, autonomie: parseInt(e.target.value)})}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{ backgroundColor: theme.border }}
+                  />
+                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
+                    <span>🆘 Besoin constant d'aide</span>
+                    <span>🤝 Travaille en équipe</span>
+                    <span>🚀 Totalement autonome</span>
+                  </div>
+                </div>
+
+                {/* Esprit d'équipe */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium flex items-center gap-2" style={{ color: theme.text }}>
+                      <Users size={16} className="text-green-500" /> Esprit d'équipe
+                    </label>
+                    <span className="text-emerald-600 font-bold">{evaluation.espritEquipe}/20</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="20" 
+                    value={evaluation.espritEquipe}
+                    onChange={(e) => setEvaluation({...evaluation, espritEquipe: parseInt(e.target.value)})}
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer"
+                    style={{ backgroundColor: theme.border }}
+                  />
+                  <div className="flex justify-between text-xs mt-1" style={{ color: theme.textLight }}>
+                    <span>😤 Difficile à intégrer</span>
+                    <span>🤝 Coopère bien</span>
+                    <span>🌟 Leader naturel</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Note globale et commentaire */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t" style={{ borderColor: theme.border }}>
+                <div>
+                  <label className="font-medium block mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                    <Star size={16} className="text-yellow-500" /> Note globale (sur 5)
+                  </label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map(note => (
+                      <button
+                        key={note}
+                        onClick={() => setEvaluation({...evaluation, note})}
+                        className={`w-12 h-12 rounded-xl font-bold transition-all ${
+                          evaluation.note >= note 
+                            ? 'bg-yellow-400 text-white shadow-md' 
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+                        }`}
+                      >
+                        {note}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs mt-2" style={{ color: theme.textLight }}>
+                    {evaluation.note === 1 && "⚠️ Insuffisant - Des progrès majeurs nécessaires"}
+                    {evaluation.note === 2 && "📊 Satisfaisant - Moyenne, peut mieux faire"}
+                    {evaluation.note === 3 && "👍 Bien - Bon travail, continuez"}
+                    {evaluation.note === 4 && "🌟 Très bien - Excellente performance"}
+                    {evaluation.note === 5 && "🏆 Exceptionnel - Au-delà des attentes"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="font-medium block mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                    <TrendingUp size={16} className="text-blue-500" /> Progression observée
+                  </label>
+                  <select 
+                    value={evaluation.progression} 
+                    onChange={(e) => setEvaluation({...evaluation, progression: e.target.value})}
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  >
+                    <option value="">Sélectionner une progression</option>
+                    <option value="excellente">📈 Excellente - Dépassé les objectifs</option>
+                    <option value="bonne">📈 Bonne - Progression notable</option>
+                    <option value="moyenne">📊 Moyenne - Conforme aux attentes</option>
+                    <option value="faible">📉 Faible - Peu de progression</option>
+                    <option value="aucune">⏸️ Aucune - Stagnation</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-medium block mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <FileText size={16} className="text-gray-500" /> Commentaire détaillé
+                </label>
+                <textarea 
+                  rows="4"
+                  value={evaluation.commentaire}
+                  onChange={(e) => setEvaluation({...evaluation, commentaire: e.target.value})}
+                  placeholder="Points forts, points à améliorer, recommandations..."
+                  className="w-full p-3 border rounded-xl resize-none"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                />
+              </div>
+
+              {/* Résumé de l'évaluation */}
+              <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
+                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}>
+                  <PieChart size={16} className="text-emerald-500" />
+                  Résumé de l'évaluation
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-500">Moyenne:</span>
+                    <p className="font-bold text-emerald-600">
+                      {Math.round((evaluation.ponctualite + evaluation.qualiteTravail + evaluation.autonomie + evaluation.espritEquipe) / 4)}/20
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Note finale:</span>
+                    <p className="font-bold text-yellow-600">{evaluation.note}/5 ⭐</p>
+                  </div>
+                </div>
+                {evaluation.commentaire && (
+                  <div className="mt-3 pt-3 border-t" style={{ borderColor: theme.border }}>
+                    <span className="text-gray-500 text-sm">Commentaire:</span>
+                    <p className="text-sm mt-1 italic" style={{ color: theme.textLight }}>"{evaluation.commentaire}"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Boutons d'action */}
+            <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
+              <button 
+                onClick={handleSaveEvaluation} 
+                className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600 transition flex items-center justify-center gap-2"
+              >
+                <Save size={18} /> Enregistrer l'évaluation
+              </button>
+              <button 
+                onClick={() => setShowEvaluationModal(false)} 
+                className="flex-1 py-3 rounded-xl font-semibold transition flex items-center justify-center gap-2"
+                style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+              >
+                <X size={18} /> Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SIDEBAR */}
-      <div className="w-72 bg-gray-900 text-gray-300 flex-shrink-0">
-        <div className="p-6 border-b border-gray-800">
+      <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
+        <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl font-bold text-white">
               {logoPreview ? <img src={logoPreview} className="w-10 h-10 rounded-xl object-cover" alt="logo" /> : <TrendingUp size={20} />}
             </div>
             <div><h1 className="text-xl font-bold text-white">Stag.io</h1><p className="text-emerald-400 text-xs">Espace Entreprise</p></div>
           </div>
-          <div className="mt-4 pt-3 border-t border-gray-800">
+          <div className="mt-4 pt-3 border-t" style={{ borderColor: '#374151' }}>
             <p className="text-sm font-medium text-white">{entrepriseProfil.nom}</p>
             <p className="text-emerald-400 text-xs">{entrepriseProfil.secteur || "Entreprise"}</p>
           </div>
@@ -393,20 +716,20 @@ export function DashboardEntreprise({
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="bg-white shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10">
-          <h2 className="text-xl font-bold text-gray-800">{getMenuTitle(activeMenu)}</h2>
+        <div className="shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
+          <h2 className="text-xl font-bold" style={{ color: theme.text }}>{getMenuTitle(activeMenu)}</h2>
           <div className="flex items-center gap-3">
-            {logoPreview ? <img src={logoPreview} alt="Logo" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-400" /> : <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center"><Building size={18} className="text-gray-500" /></div>}
-            <span className="text-gray-700 font-medium">{entrepriseProfil.nom}</span>
+            {logoPreview ? <img src={logoPreview} alt="Logo" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-400" /> : <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: theme.cardAlt }}><Building size={18} style={{ color: theme.textLight }} /></div>}
+            <span className="font-medium" style={{ color: theme.text }}>{entrepriseProfil.nom}</span>
           </div>
         </div>
-
+        
         <div className="flex-1 overflow-y-auto p-6">
           
-          {/* ==================== MON PROFIL ==================== */}
+          {/* PROFIL */}
           {activeMenu === "profil" && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: theme.card }}>
                 <div className="h-32 bg-gradient-to-r from-emerald-600 to-teal-600 relative">
                   <div className="absolute -bottom-12 left-6">
                     <div className="relative">
@@ -419,18 +742,18 @@ export function DashboardEntreprise({
                   <div className="flex justify-between items-start">
                     <div>
                       {!isEditing ? (
-                        <><h3 className="text-2xl font-bold text-gray-800">{entrepriseProfil.nom}</h3><p className="text-emerald-600 font-medium">{entrepriseProfil.secteur}</p><p className="text-gray-500 text-sm">{entrepriseProfil.email}</p></>
+                        <><h3 className="text-2xl font-bold" style={{ color: theme.text }}>{entrepriseProfil.nom}</h3><p className="text-emerald-600 font-medium">{entrepriseProfil.secteur}</p><p style={{ color: theme.textLight }}>{entrepriseProfil.email}</p></>
                       ) : (
-                        <div className="space-y-2"><input type="text" name="nom" value={entrepriseProfil.nom} onChange={handleInputChange} className="p-2 border rounded-lg w-full" /><input type="text" name="secteur" value={entrepriseProfil.secteur} onChange={handleInputChange} className="p-2 border rounded-lg w-full" /><input type="email" name="email" value={entrepriseProfil.email} onChange={handleInputChange} className="p-2 border rounded-lg w-full" /></div>
+                        <div className="space-y-2"><input type="text" name="nom" value={entrepriseProfil.nom} onChange={handleInputChange} className="p-2 border rounded-lg w-full" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /><input type="text" name="secteur" value={entrepriseProfil.secteur} onChange={handleInputChange} className="p-2 border rounded-lg w-full" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /><input type="email" name="email" value={entrepriseProfil.email} onChange={handleInputChange} className="p-2 border rounded-lg w-full" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /></div>
                       )}
                     </div>
-                    {!isEditing ? <button onClick={() => setIsEditing(true)} className="bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2"><Edit2 size={16} /> Modifier</button> : <div className="flex gap-2"><button onClick={handleSaveProfil} className="bg-emerald-500 text-white px-4 py-2 rounded-xl flex items-center gap-2"><Save size={16} /> Enregistrer</button><button onClick={() => setIsEditing(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-xl flex items-center gap-2"><X size={16} /> Annuler</button></div>}
+                    {!isEditing ? <button onClick={() => setIsEditing(true)} className="bg-gray-700 text-white px-4 py-2 rounded-xl flex items-center gap-2"><Edit2 size={16} /> Modifier</button> : <div className="flex gap-2"><button onClick={handleSaveProfil} className="bg-emerald-500 text-white px-4 py-2 rounded-xl flex items-center gap-2"><Save size={16} /> Enregistrer</button><button onClick={() => setIsEditing(false)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl flex items-center gap-2"><X size={16} /> Annuler</button></div>}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2"><Building size={18} className="text-emerald-500" /> Informations de l'entreprise</h4>
+              <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
+                <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}><Building size={18} className="text-emerald-500" /> Informations de l'entreprise</h4>
                 <div className="grid md:grid-cols-2 gap-5">
                   {[
                     { label: "Téléphone", name: "telephone", value: entrepriseProfil.telephone, icon: <Phone size={14} /> },
@@ -439,53 +762,53 @@ export function DashboardEntreprise({
                     { label: "Nombre d'employés", name: "nbEmployes", value: entrepriseProfil.nbEmployes, icon: <Users size={14} /> }
                   ].map((field) => (
                     <div key={field.name}>
-                      <label className="text-sm text-gray-500 flex items-center gap-1 mb-1">{field.icon} {field.label}</label>
-                      {!isEditing ? <p className="text-gray-800">{field.value || "Non renseigné"}</p> : <input type="text" name={field.name} value={entrepriseProfil[field.name]} onChange={handleInputChange} className="w-full p-2 border border-gray-200 rounded-lg" />}
+                      <label className="text-sm flex items-center gap-1 mb-1" style={{ color: theme.textLight }}>{field.icon} {field.label}</label>
+                      {!isEditing ? <p style={{ color: theme.text }}>{field.value || "Non renseigné"}</p> : <input type="text" name={field.name} value={entrepriseProfil[field.name]} onChange={handleInputChange} className="w-full p-2 border rounded-lg" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />}
                     </div>
                   ))}
                   <div className="md:col-span-2">
-                    <label className="text-sm text-gray-500 mb-1 block">Description</label>
-                    {!isEditing ? <p className="text-gray-800 p-2 bg-gray-50 rounded-lg">{entrepriseProfil.description || "Aucune description"}</p> : <textarea name="description" value={entrepriseProfil.description} onChange={handleInputChange} rows="3" className="w-full p-2 border border-gray-200 rounded-lg"></textarea>}
+                    <label className="text-sm mb-1 block" style={{ color: theme.textLight }}>Description</label>
+                    {!isEditing ? <p className="p-2 rounded-lg" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{entrepriseProfil.description || "Aucune description"}</p> : <textarea name="description" value={entrepriseProfil.description} onChange={handleInputChange} rows="3" className="w-full p-2 border rounded-lg" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>}
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ==================== MES OFFRES ==================== */}
+          {/* OFFRES */}
           {activeMenu === "offres" && (
             <div>
               <div className="flex justify-between items-center mb-5 flex-wrap gap-3">
-                <h3 className="text-lg font-semibold text-gray-800">Mes offres de stage</h3>
+                <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Mes offres de stage</h3>
                 <button onClick={() => setShowAddModal(true)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm hover:bg-emerald-600 flex items-center gap-2"><Plus size={16} /> Publier une offre</button>
               </div>
               <div className="space-y-4">
                 {mesOffres && mesOffres.length > 0 ? mesOffres.map(offre => (
-                  <div key={offre.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border border-gray-100">
+                  <div key={offre.id} className="rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
                     <div className="p-5">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex gap-2 mb-2">
-                            <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs font-medium rounded-full">{offre.type || 'Stage'}</span>
+                            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full">{offre.type || 'Stage'}</span>
                             {offre.dateFin && new Date(offre.dateFin) > new Date() ? 
-                              <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">Active</span> : 
-                              <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Expirée</span>
+                              <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded-full">Active</span> : 
+                              <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded-full">Expirée</span>
                             }
                           </div>
-                          <h4 className="font-bold text-lg text-gray-800">{offre.titre}</h4>
-                          <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-500">
+                          <h4 className="font-bold text-lg" style={{ color: theme.text }}>{offre.titre}</h4>
+                          <div className="flex flex-wrap gap-4 mt-2 text-sm" style={{ color: theme.textLight }}>
                             <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu}</span>
                             <span className="flex items-center gap-1"><Clock size={14} /> {offre.duree}</span>
                             <span className="text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span>
                           </div>
-                          <div className="flex gap-4 mt-2 text-xs text-gray-400">
+                          <div className="flex gap-4 mt-2 text-xs" style={{ color: theme.textLight }}>
                             <span className="flex items-center gap-1"><Calendar size={12} /> Début: {offre.dateCreation}</span>
                             <span className="flex items-center gap-1"><Calendar size={12} /> Fin: {offre.dateFin}</span>
                           </div>
-                          {offre.description && <p className="text-gray-600 text-sm mt-2 line-clamp-2">{offre.description}</p>}
+                          {offre.description && <p className="text-sm mt-2 line-clamp-2" style={{ color: theme.textLight }}>{offre.description}</p>}
                           {offre.competences && offre.competences.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
-                              {offre.competences.slice(0, 3).map((s, i) => <span key={i} className="text-xs px-2 py-1 bg-gray-100 rounded-full">{s}</span>)}
+                              {offre.competences.slice(0, 3).map((s, i) => <span key={i} className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}
                             </div>
                           )}
                         </div>
@@ -494,9 +817,9 @@ export function DashboardEntreprise({
                     </div>
                   </div>
                 )) : (
-                  <div className="bg-white rounded-xl p-12 text-center">
-                    <Briefcase size={48} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">Aucune offre publiée</p>
+                  <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                    <Briefcase size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                    <p style={{ color: theme.textLight }}>Aucune offre publiée</p>
                     <button onClick={() => setShowAddModal(true)} className="mt-3 text-emerald-600 hover:text-emerald-700">Publier ma première offre →</button>
                   </div>
                 )}
@@ -504,17 +827,17 @@ export function DashboardEntreprise({
             </div>
           )}
 
-          {/* ==================== CANDIDATURES REÇUES AVEC BOUTONS QUI MARCHENT ==================== */}
+          {/* CANDIDATURES */}
           {activeMenu === "candidatures" && (
             <div>
               <div className="flex flex-wrap gap-4 mb-5 items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-800">Candidatures reçues</h3>
+                <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Candidatures reçues</h3>
                 <div className="flex gap-3">
                   <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm w-64" />
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
+                    <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 pr-3 py-2 border rounded-xl text-sm w-64" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
                   </div>
-                  <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm">
+                  <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border rounded-xl text-sm" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
                     <option value="Tous">Tous</option>
                     <option value="en_attente">En attente</option>
                     <option value="acceptee">Acceptée</option>
@@ -524,27 +847,27 @@ export function DashboardEntreprise({
               </div>
               <div className="space-y-3">
                 {candidaturesFiltrees.length > 0 ? candidaturesFiltrees.map(c => (
-                  <div key={c.id} className={`bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition border-l-4 ${
+                  <div key={c.id} className={`rounded-xl p-4 shadow-sm hover:shadow-md transition border-l-4 ${
                     c.statut === "acceptee" ? "border-emerald-400" : c.statut === "refusee" ? "border-rose-400" : "border-yellow-400"
-                  }`}>
+                  }`} style={{ backgroundColor: theme.card }}>
                     <div className="flex justify-between items-start flex-wrap gap-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-gray-800">{c.etudiantNom || "Candidat"}</h4>
+                          <h4 className="font-bold" style={{ color: theme.text }}>{c.etudiantNom || "Candidat"}</h4>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            c.statut === "acceptee" ? "bg-emerald-100 text-emerald-700" : 
-                            c.statut === "refusee" ? "bg-rose-100 text-rose-600" : 
-                            "bg-yellow-100 text-yellow-700"
+                            c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
+                            c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
+                            "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
                           }`}>
                             {c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}
                           </span>
                         </div>
-                        <p className="text-gray-600 text-sm">{c.offreTitre || "Offre"}</p>
-                        <p className="text-sm text-gray-500 flex items-center gap-1 mt-1"><Mail size={12} /> {c.email || "Email non renseigné"}</p>
-                        <p className="text-xs text-gray-400 mt-1">Postulé le {c.date || new Date().toLocaleDateString()}</p>
+                        <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre || "Offre"}</p>
+                        <p className="text-sm flex items-center gap-1 mt-1" style={{ color: theme.textLight }}><Mail size={12} /> {c.email || "Email non renseigné"}</p>
+                        <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date || new Date().toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleViewCV(c)} className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-200 transition flex items-center gap-1">
+                        <button onClick={() => handleViewCV(c)} className="px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
                           <Eye size={14} /> Voir CV
                         </button>
                         {c.statut === "en_attente" && (
@@ -567,108 +890,441 @@ export function DashboardEntreprise({
                     </div>
                   </div>
                 )) : (
-                  <div className="bg-white rounded-xl p-12 text-center">
-                    <Users size={48} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">Aucune candidature reçue</p>
+                  <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                    <Users size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                    <p style={{ color: theme.textLight }}>Aucune candidature reçue</p>
                   </div>
                 )}
               </div>
             </div>
           )}
 
-          {/* ==================== STATISTIQUES ==================== */}
-          {activeMenu === "statistiques" && (
+          {/* STAGIAIRES ÉVALUÉS */}
+          {activeMenu === "stagiaires" && (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-400">
-                  <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Total offres</p><p className="text-3xl font-bold text-gray-800">{mesOffres.length}</p></div><Briefcase size={32} className="text-emerald-500" /></div>
-                </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-400">
-                  <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Offres actives</p><p className="text-3xl font-bold text-green-600">{offresActives}</p></div><CheckCircle size={32} className="text-emerald-500" /></div>
-                </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-400">
-                  <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Candidatures</p><p className="text-3xl font-bold text-gray-800">{mesCandidatures.length}</p></div><Users size={32} className="text-emerald-500" /></div>
-                </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm border-l-4 border-emerald-400">
-                  <div className="flex justify-between"><div><p className="text-gray-500 text-sm">Taux acceptation</p><p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p></div><TrendingUp size={32} className="text-emerald-500" /></div>
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Stagiaires évalués</h3>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
+                  <input 
+                    type="text" 
+                    placeholder="Rechercher un stagiaire..." 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                    className="pl-9 pr-3 py-2 border rounded-xl text-sm w-64" 
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-xl p-5 shadow-sm">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Users size={16} className="text-emerald-500" /> Répartition candidatures</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between"><span className="text-gray-600">En attente</span><span className="font-bold text-yellow-600">{candidaturesEnAttente}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Acceptées</span><span className="font-bold text-emerald-600">{candidaturesAcceptees}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-600">Refusées</span><span className="font-bold text-rose-500">{candidaturesRefusees}</span></div>
+              <div className="space-y-3">
+                {mesCandidatures.filter(c => c.statut === "acceptee").length > 0 ? (
+                  mesCandidatures
+                    .filter(c => c.statut === "acceptee")
+                    .filter(c => searchTerm === "" || c.etudiantNom?.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(stagiaire => {
+                      const estEvalue = stagiaire.evaluation !== undefined;
+                      return (
+                        <div key={stagiaire.id} className="rounded-xl p-4 shadow-sm hover:shadow-md transition border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                          <div className="flex justify-between items-start flex-wrap gap-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-bold" style={{ color: theme.text }}>{stagiaire.etudiantNom}</h4>
+                                {estEvalue ? (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">
+                                    <Star size={12} className="inline mr-1" /> Évalué
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300">
+                                    <Clock size={12} className="inline mr-1" /> En attente
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm" style={{ color: theme.textLight }}>{stagiaire.offreTitre}</p>
+                              <p className="text-xs flex items-center gap-1 mt-1" style={{ color: theme.textLight }}>
+                                <Mail size={12} /> {stagiaire.email}
+                              </p>
+                              {estEvalue && stagiaire.evaluation && (
+                                <div className="flex items-center gap-3 mt-2">
+                                  <div className="flex items-center gap-1">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star key={i} size={14} className={i < stagiaire.evaluation.note ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs font-medium text-emerald-600">
+                                    Moy: {Math.round((stagiaire.evaluation.ponctualite + stagiaire.evaluation.qualiteTravail + 
+                                      stagiaire.evaluation.autonomie + stagiaire.evaluation.espritEquipe) / 4)}/20
+                                  </span>
+                                  {stagiaire.evaluation.dateEvaluation && (
+                                    <span className="text-xs text-gray-400">📅 {stagiaire.evaluation.dateEvaluation}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <button 
+                              onClick={() => {
+                                setSelectedStagiaire(stagiaire);
+                                if (stagiaire.evaluation) {
+                                  setEvaluation(stagiaire.evaluation);
+                                } else {
+                                  setEvaluation({
+                                    ponctualite: 15,
+                                    qualiteTravail: 15,
+                                    autonomie: 15,
+                                    espritEquipe: 15,
+                                    note: 4,
+                                    commentaire: "",
+                                    progression: ""
+                                  });
+                                }
+                                setShowEvaluationModal(true);
+                              }} 
+                              className={`px-4 py-2 rounded-xl transition flex items-center gap-2 ${
+                                estEvalue 
+                                  ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                                  : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                              }`}
+                            >
+                              {estEvalue ? <Edit2 size={16} /> : <Star size={16} />}
+                              {estEvalue ? "Modifier l'évaluation" : "Évaluer"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                    <Award size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                    <p style={{ color: theme.textLight }}>Aucun stagiaire accepté pour le moment</p>
+                    <p className="text-sm mt-2" style={{ color: theme.textLight }}>Les stagiaires apparaîtront ici une fois leurs candidatures acceptées</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Section des évaluations récentes */}
+              {stagiairesEvalues.length > 0 && (
+                <div className="mt-8 rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <TrendingUp size={18} className="text-emerald-500" />
+                    Évaluations récentes
+                  </h4>
+                  <div className="space-y-3">
+                    {stagiairesEvalues.slice(0, 3).map(stagiaire => (
+                      <div key={stagiaire.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                        <div>
+                          <p className="font-medium" style={{ color: theme.text }}>{stagiaire.etudiantNom}</p>
+                          <p className="text-xs" style={{ color: theme.textLight }}>{stagiaire.offreTitre}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} size={14} className={i < stagiaire.evaluation.note ? "text-yellow-400 fill-yellow-400" : "text-gray-300"} />
+                            ))}
+                          </div>
+                          <p className="text-xs text-emerald-600 font-medium">
+                            Note: {Math.round((stagiaire.evaluation.ponctualite + stagiaire.evaluation.qualiteTravail + 
+                              stagiaire.evaluation.autonomie + stagiaire.evaluation.espritEquipe) / 4)}/20
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Award size={16} className="text-emerald-500" /> Performance</h4>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1"><span>Traitement</span><span>{mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%</span></div>
-                    <div className="w-full bg-gray-200 rounded-full h-2"><div className="bg-emerald-500 h-2 rounded-full" style={{width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%`}}></div></div>
+              )}
+            </div>
+          )}
+
+          {/* STATISTIQUES */}
+          {activeMenu === "statistiques" && (
+            <div>
+              {/* Cartes principales */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Total offres</p>
+                      <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
+                      <Briefcase size={24} className="text-emerald-500" />
+                    </div>
                   </div>
                 </div>
-                <div className="bg-white rounded-xl p-5 shadow-sm">
-                  <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><Calendar size={16} className="text-emerald-500" /> Offres par type</h4>
-                  <div className="space-y-2">
-                    {["Stage PFE", "Stage"].map(type => {
+                
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Offres actives</p>
+                      <p className="text-3xl font-bold text-green-600">{offresActives}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
+                      <CheckCircle size={24} className="text-green-500" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Total candidatures</p>
+                      <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
+                      <Users size={24} className="text-blue-500" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition-all" style={{ backgroundColor: theme.card }}>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Taux d'acceptation</p>
+                      <p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900 rounded-xl flex items-center justify-center">
+                      <TrendingUp size={24} className="text-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Répartition des candidatures */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <Users size={18} className="text-emerald-500" /> 
+                    Répartition des candidatures
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>📋 En attente</span>
+                        <span className="font-bold text-yellow-600">{candidaturesEnAttente}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-yellow-400 h-3 rounded-full" 
+                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesEnAttente / mesCandidatures.length) * 100 : 0}%`}}>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>✅ Acceptées</span>
+                        <span className="font-bold text-emerald-600">{candidaturesAcceptees}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-emerald-500 h-3 rounded-full" 
+                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesAcceptees / mesCandidatures.length) * 100 : 0}%`}}>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>❌ Refusées</span>
+                        <span className="font-bold text-rose-600">{candidaturesRefusees}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-rose-500 h-3 rounded-full" 
+                             style={{width: `${mesCandidatures.length > 0 ? (candidaturesRefusees / mesCandidatures.length) * 100 : 0}%`}}>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance */}
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <TrendingUp size={18} className="text-emerald-500" /> 
+                    Performance
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>📊 Taux de traitement</span>
+                        <span className="font-bold text-emerald-600">
+                          {mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-emerald-500 h-3 rounded-full" 
+                             style={{width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%`}}>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>⭐ Taux de satisfaction</span>
+                        <span className="font-bold text-emerald-600">{tauxAcceptation}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-emerald-400 h-3 rounded-full" 
+                             style={{width: `${tauxAcceptation}%`}}>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span style={{ color: theme.textLight }}>📊 Stagiaires évalués</span>
+                        <span className="font-bold text-blue-600">{stagiairesEvalues.length}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div className="bg-blue-500 h-3 rounded-full" 
+                             style={{width: `${candidaturesAcceptees > 0 ? (stagiairesEvalues.length / candidaturesAcceptees) * 100 : 0}%`}}>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Statistique rapide */}
+                  <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs" style={{ color: theme.textLight }}>⏱️ Candidatures en attente</p>
+                        <p className="text-2xl font-bold" style={{ color: theme.text }}>{candidaturesEnAttente}</p>
+                      </div>
+                      <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-full flex items-center justify-center">
+                        <Clock size={24} className="text-yellow-500" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Offres par type */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <Briefcase size={18} className="text-emerald-500" /> 
+                    Offres par type
+                  </h4>
+                  <div className="space-y-4">
+                    {["Stage PFE", "Stage", "Alternance"].map(type => {
                       const count = mesOffres.filter(o => o.type === type).length;
+                      const percentage = mesOffres.length > 0 ? (count / mesOffres.length) * 100 : 0;
+                      if (count === 0 && type !== "Stage PFE") return null;
                       return (
                         <div key={type}>
-                          <div className="flex justify-between text-sm"><span>{type}</span><span>{count}</span></div>
-                          <div className="w-full bg-gray-200 rounded-full h-1.5"><div className="bg-emerald-500 h-1.5 rounded-full" style={{width: `${mesOffres.length > 0 ? (count / mesOffres.length) * 100 : 0}%`}}></div></div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span style={{ color: theme.textLight }}>{type}</span>
+                            <span className="font-bold" style={{ color: theme.text }}>{count}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                            <div className="bg-emerald-500 h-2 rounded-full" 
+                                 style={{width: `${percentage}%`}}>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <MapPin size={18} className="text-emerald-500" /> 
+                    Offres par ville
+                  </h4>
+                  <div className="space-y-4 max-h-64 overflow-y-auto">
+                    {["Alger", "Oran", "Constantine", "Annaba", "Tizi Ouzou"].map(ville => {
+                      const count = mesOffres.filter(o => o.lieu === ville).length;
+                      const percentage = mesOffres.length > 0 ? (count / mesOffres.length) * 100 : 0;
+                      if (count === 0) return null;
+                      return (
+                        <div key={ville}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span style={{ color: theme.textLight }}>📍 {ville}</span>
+                            <span className="font-bold" style={{ color: theme.text }}>{count}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                            <div className="bg-blue-500 h-2 rounded-full" 
+                                 style={{width: `${percentage}%`}}>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
               </div>
+
+              {/* Top offres populaires */}
+              {mesOffres.length > 0 && (
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h4 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <Award size={18} className="text-emerald-500" /> 
+                    Offres les plus populaires
+                  </h4>
+                  <div className="space-y-3">
+                    {mesOffres.slice(0, 5).map(offre => {
+                      const nbCandidatures = mesCandidatures.filter(c => c.offreId === offre.id).length;
+                      return (
+                        <div key={offre.id} className="flex items-center justify-between p-3 rounded-lg transition" style={{ backgroundColor: theme.cardAlt }}>
+                          <div className="flex-1">
+                            <p className="font-medium" style={{ color: theme.text }}>{offre.titre}</p>
+                            <p className="text-xs" style={{ color: theme.textLight }}>{offre.lieu} • {offre.type}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-emerald-600">{nbCandidatures}</p>
+                            <p className="text-xs" style={{ color: theme.textLight }}>candidature(s)</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-
-          {/* ==================== CHANGER MOT DE PASSE ==================== */}
+      
+          {/* MOT DE PASSE */}
           {activeMenu === "changePassword" && (
             <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-2xl shadow-sm p-8">
-                <div className="text-center mb-6"><div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><Key size={40} className="text-emerald-500" /></div><h3 className="text-2xl font-bold text-gray-800">Changer le mot de passe</h3><p className="text-gray-500 text-sm mt-2">Sécurisez votre compte</p></div>
+              <div className="rounded-2xl shadow-sm p-8" style={{ backgroundColor: theme.card }}>
+                <div className="text-center mb-6"><div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}><Key size={40} className="text-emerald-500" /></div><h3 className="text-2xl font-bold" style={{ color: theme.text }}>Changer le mot de passe</h3><p className="text-sm mt-2" style={{ color: theme.textLight }}>Sécurisez votre compte</p></div>
                 <div className="space-y-4">
-                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Ancien mot de passe</label><input type="password" name="ancienMotDePasse" value={passwordData.ancienMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border border-gray-200 rounded-xl" placeholder="Entrez votre mot de passe actuel" />{passwordErrors.ancienMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.ancienMotDePasse}</p>}</div>
-                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Nouveau mot de passe</label><input type="password" name="nouveauMotDePasse" value={passwordData.nouveauMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border border-gray-200 rounded-xl" placeholder="Minimum 6 caractères" />{passwordErrors.nouveauMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.nouveauMotDePasse}</p>}</div>
-                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Confirmer</label><input type="password" name="confirmerMotDePasse" value={passwordData.confirmerMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border border-gray-200 rounded-xl" placeholder="Retapez votre nouveau mot de passe" />{passwordErrors.confirmerMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.confirmerMotDePasse}</p>}</div>
-                  <div className="flex gap-3 pt-4"><button onClick={handleSubmitPasswordChange} className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600">Changer</button><button onClick={() => { setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" }); setPasswordErrors({}); }} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-300">Réinitialiser</button></div>
+                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Ancien mot de passe</label><input type="password" name="ancienMotDePasse" value={passwordData.ancienMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Entrez votre mot de passe actuel" />{passwordErrors.ancienMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.ancienMotDePasse}</p>}</div>
+                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Nouveau mot de passe</label><input type="password" name="nouveauMotDePasse" value={passwordData.nouveauMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Minimum 6 caractères" />{passwordErrors.nouveauMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.nouveauMotDePasse}</p>}</div>
+                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Confirmer</label><input type="password" name="confirmerMotDePasse" value={passwordData.confirmerMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Retapez votre nouveau mot de passe" />{passwordErrors.confirmerMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.confirmerMotDePasse}</p>}</div>
+                  <div className="flex gap-3 pt-4"><button onClick={handleSubmitPasswordChange} className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600">Changer</button><button onClick={() => { setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" }); setPasswordErrors({}); }} className="flex-1 py-3 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Réinitialiser</button></div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ==================== CONDITIONS & AIDE ==================== */}
+          {/* AIDE */}
           {activeMenu === "aide" && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm p-6">
-                <h3 className="text-xl font-bold text-gray-800 mb-2 flex items-center gap-2"><HelpCircle size={24} className="text-emerald-500" /> Centre d'aide</h3>
-                <p className="text-gray-500 text-sm mb-6">Retrouvez ici toutes les informations nécessaires pour utiliser la plateforme</p>
+              <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
+                <h3 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: theme.text }}><HelpCircle size={24} className="text-emerald-500" /> Centre d'aide</h3>
+                <p className="text-sm mb-6" style={{ color: theme.textLight }}>Retrouvez ici toutes les informations nécessaires pour utiliser la plateforme</p>
                 
                 <div className="space-y-4">
-                  <div className="border-b border-gray-100 pb-4">
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2 mb-2"><BookOpen size={16} className="text-emerald-500" /> Conditions générales d'utilisation</h4>
-                    <p className="text-gray-600 text-sm">En utilisant StageFlow, vous acceptez de respecter les conditions suivantes : les offres publiées doivent être conformes à la législation en vigueur, les informations fournies doivent être exactes, et vous vous engagez à traiter les candidatures dans les meilleurs délais.</p>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><BookOpen size={16} className="text-emerald-500" /> Conditions générales d'utilisation</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>En utilisant StageFlow, vous acceptez de respecter les conditions suivantes : les offres publiées doivent être conformes à la législation en vigueur, les informations fournies doivent être exactes, et vous vous engagez à traiter les candidatures dans les meilleurs délais.</p>
                   </div>
                   
-                  <div className="border-b border-gray-100 pb-4">
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2 mb-2"><MessageCircle size={16} className="text-emerald-500" /> Comment publier une offre ?</h4>
-                    <p className="text-gray-600 text-sm">1. Allez dans la section "Mes offres"<br />2. Cliquez sur "Publier une offre"<br />3. Remplissez tous les champs (titre, dates, lieu, salaire, description)<br />4. Ajoutez les compétences requises<br />5. Cliquez sur "Publier"</p>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><MessageCircle size={16} className="text-emerald-500" /> Comment publier une offre ?</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans la section "Mes offres"<br />2. Cliquez sur "Publier une offre"<br />3. Remplissez tous les champs (titre, dates, lieu, salaire, description)<br />4. Ajoutez les compétences requises<br />5. Cliquez sur "Publier"</p>
                   </div>
                   
-                  <div className="border-b border-gray-100 pb-4">
-                    <h4 className="font-semibold text-gray-800 flex items-center gap-2 mb-2"><Eye size={16} className="text-emerald-500" /> Comment consulter les candidatures ?</h4>
-                    <p className="text-gray-600 text-sm">1. Allez dans "Candidatures reçues"<br />2. Vous verrez la liste des candidats<br />3. Cliquez sur "Voir CV" pour consulter le détail<br />4. Vous pouvez accepter ou refuser chaque candidature</p>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><Eye size={16} className="text-emerald-500" /> Comment consulter les candidatures ?</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans "Candidatures reçues"<br />2. Vous verrez la liste des candidats<br />3. Cliquez sur "Voir CV" pour consulter le détail<br />4. Vous pouvez accepter ou refuser chaque candidature</p>
+                  </div>
+
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><Award size={16} className="text-emerald-500" /> Comment évaluer un stagiaire ?</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>1. Allez dans "Stagiaires évalués"<br />2. Sélectionnez un stagiaire accepté<br />3. Remplissez la grille d'évaluation (ponctualité, qualité, autonomie, esprit d'équipe)<br />4. Ajoutez une note globale et un commentaire<br />5. Enregistrez l'évaluation</p>
                   </div>
                   
-                  <div className="bg-emerald-50 rounded-xl p-4 border-l-4 border-emerald-500">
-                    <h4 className="font-semibold text-emerald-700 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4>
-                    <p className="text-gray-600 text-sm">En cas de problème, contactez notre équipe support :<br /><span className="font-medium text-emerald-600">support@stageflow.dz</span></p>
+                  <div className="rounded-xl p-4 border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
+                    <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4>
+                    <p className="text-sm" style={{ color: theme.textLight }}>En cas de problème, contactez notre équipe support :<br /><span className="font-medium text-emerald-600">support@stageflow.dz</span></p>
                   </div>
                 </div>
               </div>
@@ -680,18 +1336,18 @@ export function DashboardEntreprise({
       {/* MODAL AJOUTER OFFRE */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center"><h3 className="font-bold text-lg text-gray-800">📢 Publier une offre</h3><button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded-lg"><X size={20} /></button></div>
+          <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
+            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}><h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une offre</h3><button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button></div>
             <div className="p-6 space-y-4">
-              <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-400" />
-              <div className="grid grid-cols-2 gap-3"><input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border border-gray-200 rounded-xl" /><input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border border-gray-200 rounded-xl" /></div>
-              <input type="text" placeholder="Période (ex: Lundi-Vendredi, 9h-17h)" value={newOffre.periode} onChange={(e) => setNewOffre({...newOffre, periode: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl" />
-              <select value={newOffre.lieu} onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl"><option>Alger</option><option>Oran</option><option>Constantine</option><option>Tizi Ouzou</option><option>Annaba</option></select>
-              <select value={newOffre.type} onChange={(e) => setNewOffre({...newOffre, type: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl"><option>Stage PFE</option><option>Stage</option></select>
-              <input type="text" placeholder="Salaire *" value={newOffre.salaire} onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl" />
-              <input type="text" placeholder="Compétences (séparées par virgule)" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} className="w-full p-2 border border-gray-200 rounded-xl" />
-              <textarea placeholder="Description détaillée *" rows="5" value={newOffre.description} onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} className="w-full p-2 border border-gray-200 rounded-xl resize-none"></textarea>
-              <div className="flex gap-3 pt-2"><button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button><button onClick={() => setShowAddModal(false)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl font-semibold hover:bg-gray-200">Annuler</button></div>
+              <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border rounded-xl focus:ring-2 focus:ring-emerald-400" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <div className="grid grid-cols-2 gap-3"><input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /><input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /></div>
+              <input type="text" placeholder="Période (ex: Lundi-Vendredi, 9h-17h)" value={newOffre.periode} onChange={(e) => setNewOffre({...newOffre, periode: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <select value={newOffre.lieu} onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}><option>Alger</option><option>Oran</option><option>Constantine</option><option>Tizi Ouzou</option><option>Annaba</option></select>
+              <select value={newOffre.type} onChange={(e) => setNewOffre({...newOffre, type: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}><option>Stage PFE</option><option>Stage</option></select>
+              <input type="text" placeholder="Salaire *" value={newOffre.salaire} onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <input type="text" placeholder="Compétences (séparées par virgule)" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <textarea placeholder="Description détaillée *" rows="5" value={newOffre.description} onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
+              <div className="flex gap-3 pt-2"><button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button><button onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button></div>
             </div>
           </div>
         </div>
@@ -707,17 +1363,3 @@ export function DashboardEntreprise({
     </div>
   );
 }
-
-// Composants manquants
-const Camera = ({ size, className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-    <circle cx="12" cy="13" r="4"/>
-  </svg>
-);
-
-const Globe = ({ size, className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-  </svg>
-);
