@@ -4,11 +4,12 @@ import {
   TrendingUp, LogOut, MapPin, Clock, DollarSign, Upload, Camera, Save,
   X, CheckCircle, AlertCircle, Key, Download, FilePlus, Edit, Building2, Search,
   Trash2, Eye, ChevronDown, ChevronRight, Globe, Phone, Mail, MapPin as MapPinIcon,
-  Filter, SlidersHorizontal
+  Filter, SlidersHorizontal, Plus, Trash
 } from "lucide-react";
+import jsPDF from 'jspdf';
 
 // ============================================
-// DONNÉES DE TEST (remplace par ton import si besoin)
+// DONNÉES DE TEST POUR LES OFFRES
 // ============================================
 const offersData = [
   {
@@ -68,211 +69,146 @@ const offersData = [
   }
 ];
 
-const TYPES_OPTIONS = ['Stage', 'Stage PFE', 'Alternance'];
-const VILLES_OPTIONS = ['Alger', 'Oran', 'Constantine', 'Annaba', 'Tizi Ouzou', 'Béjaïa'];
-const DUREE_OPTIONS = [
-  { value: 'court', label: '< 3 mois' },
-  { value: 'moyen', label: '3 à 6 mois' },
-  { value: 'long', label: '> 6 mois' }
-];
-
 // ============================================
-// COMPOSANT DES FILTRES RADHOUM (SIDE LIST) AVEC MODE SOMBRE
+// COMPOSANT AUTOCOMPLETE WILAYA
 // ============================================
-function RadhoumFilters({ filters, setFilters, activeFiltersCount, onReset, darkMode }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+function AutocompleteWilaya({ value, onChange, placeholder, darkMode }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const inputRef = useRef(null);
 
-  const theme = {
-    card: darkMode ? '#1f2937' : '#ffffff',
-    border: darkMode ? '#374151' : '#e5e7eb',
-    text: darkMode ? '#f3f4f6' : '#1f2937',
-    textLight: darkMode ? '#9ca3af' : '#4b5563',
-    inputBg: darkMode ? '#374151' : '#ffffff',
-    cardAlt: darkMode ? '#374151' : '#f9fafb'
+  const wilayas = [
+    'Adrar', 'Chlef', 'Laghouat', 'Oum El Bouaghi', 'Batna', 'Béjaïa', 'Biskra', 'Béchar',
+    'Blida', 'Bouira', 'Tamanrasset', 'Tébessa', 'Tlemcen', 'Tiaret', 'Tizi Ouzou', 'Alger',
+    'Djelfa', 'Jijel', 'Sétif', 'Saïda', 'Skikda', 'Sidi Bel Abbès', 'Annaba', 'Guelma',
+    'Constantine', 'Médéa', 'Mostaganem', 'M\'Sila', 'Mascara', 'Ouargla', 'Oran', 'El Bayadh',
+    'Illizi', 'Bordj Bou Arréridj', 'Boumerdès', 'El Tarf', 'Tindouf', 'Tissemsilt', 'El Oued',
+    'Khenchela', 'Souk Ahras', 'Tipaza', 'Mila', 'Aïn Defla', 'Naâma', 'Aïn Témouchent',
+    'Ghardaïa', 'Relizane', 'Timimoun', 'Bordj Badji Mokhtar', 'Ouled Djellal', 'Béni Abbès',
+    'In Salah', 'In Guezzam', 'Touggourt', 'Djanet', 'El M\'Ghair', 'El Meniaa'
+  ];
+
+  const handleChange = (e) => {
+    const inputValue = e.target.value;
+    onChange(inputValue);
+    
+    if (inputValue.length > 0) {
+      const filtered = wilayas.filter(wilaya => 
+        wilaya.toLowerCase().includes(inputValue.toLowerCase())
+      );
+      setSuggestions(filtered.slice(0, 8));
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
   };
 
+  const selectWilaya = (wilaya) => {
+    onChange(wilaya);
+    setShowSuggestions(false);
+  };
+
+  const inputBg = darkMode ? '#374151' : '#ffffff';
+  const textColor = darkMode ? '#f3f4f6' : '#1f2937';
+  const borderColor = darkMode ? '#374151' : '#e5e7eb';
+
   return (
-    <div className={`rounded-2xl shadow-sm border transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-80'} flex-shrink-0 h-full overflow-y-auto sticky top-6`} style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-      <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.border }}>
-        {!isCollapsed && (
-          <div className="flex items-center gap-2">
-            <SlidersHorizontal size={18} className="text-emerald-500" />
-            <h3 className="font-semibold" style={{ color: theme.text }}>Filtres avancés</h3>
-            {activeFiltersCount > 0 && (
-              <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">{activeFiltersCount}</span>
-            )}
-          </div>
-        )}
-        <button onClick={() => setIsCollapsed(!isCollapsed)} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700">
-          {isCollapsed ? <ChevronRight size={18} style={{ color: theme.textLight }} /> : <ChevronDown size={18} style={{ color: theme.textLight }} />}
-        </button>
-      </div>
-
-      {!isCollapsed && (
-        <div className="p-4 space-y-5">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>🔍 Recherche</label>
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
-              <input
-                type="text"
-                placeholder="Titre, entreprise..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-full pl-9 pr-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-400 transition-all"
-                style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>📌 Type</label>
-            <div className="space-y-1.5">
-              {TYPES_OPTIONS.map(type => (
-                <label key={type} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filters.types.includes(type)}
-                    onChange={() => {
-                      setFilters(prev => ({
-                        ...prev,
-                        types: prev.types.includes(type) ? prev.types.filter(t => t !== type) : [...prev.types, type]
-                      }));
-                    }}
-                    className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-400"
-                  />
-                  <span className="text-sm" style={{ color: theme.text }}>{type}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>📍 Localisation</label>
-            <div className="space-y-1.5 max-h-32 overflow-y-auto">
-              {VILLES_OPTIONS.map(ville => (
-                <label key={ville} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filters.villes.includes(ville)}
-                    onChange={() => {
-                      setFilters(prev => ({
-                        ...prev,
-                        villes: prev.villes.includes(ville) ? prev.villes.filter(v => v !== ville) : [...prev.villes, ville]
-                      }));
-                    }}
-                    className="rounded border-gray-300 text-emerald-500 focus:ring-emerald-400"
-                  />
-                  <span className="text-sm" style={{ color: theme.text }}>{ville}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>💰 Rémunération</label>
-            <div className="flex gap-2">
-              {[
-                { value: null, label: 'Tous' },
-                { value: true, label: 'Rémunéré' },
-                { value: false, label: 'Non rémunéré' }
-              ].map(opt => (
-                <button
-                  key={opt.label}
-                  onClick={() => setFilters(prev => ({ ...prev, remunere: opt.value }))}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    filters.remunere === opt.value 
-                      ? 'bg-emerald-500 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>⏱️ Durée</label>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setFilters(prev => ({ ...prev, duree: '' }))}
-                className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                  filters.duree === '' ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                Toutes
-              </button>
-              {DUREE_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  onClick={() => setFilters(prev => ({ ...prev, duree: opt.value }))}
-                  className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    filters.duree === opt.value ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: theme.textLight }}>⚙️ Compétences</label>
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {filters.competences.map((comp, idx) => (
-                <span key={idx} className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
-                  {comp}
-                  <button onClick={() => setFilters(prev => ({ ...prev, competences: prev.competences.filter(c => c !== comp) }))} className="hover:text-emerald-900">
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Ajouter une compétence..."
-              className="w-full px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
-              style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && e.target.value.trim()) {
-                  setFilters(prev => ({ ...prev, competences: [...prev.competences, e.target.value.trim()] }));
-                  e.target.value = '';
-                }
-              }}
-            />
-            <p className="text-xs mt-1" style={{ color: theme.textLight }}>Entrée pour ajouter</p>
-          </div>
-
-          <div className="pt-3 border-t space-y-2" style={{ borderColor: theme.border }}>
-            <button
-              onClick={onReset}
-              className="w-full py-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
-              style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+    <div className="relative">
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={handleChange}
+        onFocus={() => value && setShowSuggestions(true)}
+        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+        placeholder={placeholder}
+        className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+        style={{ backgroundColor: inputBg, color: textColor, borderColor: borderColor }}
+      />
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 border rounded-xl shadow-lg max-h-60 overflow-y-auto"
+             style={{ backgroundColor: inputBg, borderColor: borderColor }}>
+          {suggestions.map((wilaya, index) => (
+            <div
+              key={index}
+              onClick={() => selectWilaya(wilaya)}
+              className="px-4 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 cursor-pointer text-sm flex items-center gap-2"
+              style={{ color: textColor }}
             >
-              <Trash2 size={14} /> Réinitialiser
-            </button>
-          </div>
-        </div>
-      )}
-
-      {isCollapsed && (
-        <div className="p-3 space-y-4">
-          <div className="flex justify-center"><Search size={18} style={{ color: theme.textLight }} /></div>
-          <div className="flex justify-center"><Filter size={18} style={{ color: theme.textLight }} /></div>
-          <div className="flex justify-center"><MapPin size={18} style={{ color: theme.textLight }} /></div>
-          <div className="flex justify-center"><DollarSign size={18} style={{ color: theme.textLight }} /></div>
-          <div className="flex justify-center"><Clock size={18} style={{ color: theme.textLight }} /></div>
+              <MapPin size={14} className="text-emerald-500" />
+              {wilaya}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
+// ============================================
+// COMPOSANT LIST SECTION (à mettre en dehors du composant principal)
+// ============================================
+const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, placeholder, darkMode }) => {
+  const themeList = {
+    textLight: darkMode ? '#9ca3af' : '#4b5563',
+    text: darkMode ? '#f3f4f6' : '#1f2937',
+    inputBg: darkMode ? '#374151' : '#ffffff',
+    border: darkMode ? '#374151' : '#e5e7eb',
+    cardAlt: darkMode ? '#374151' : '#f9fafb',
+  };
+
+  return (
+    <div className="mb-4">
+      <label className="block text-sm font-medium mb-2" style={{ color: themeList.textLight }}>{title}</label>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 p-2 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+          style={{ backgroundColor: themeList.inputBg, color: themeList.text, borderColor: themeList.border }}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (newValue.trim()) {
+              onAdd();
+            }
+          }}
+          className="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition flex items-center gap-1"
+        >
+          <Plus size={16} /> Ajouter
+        </button>
+      </div>
+      {items.length > 0 ? (
+        <ul className="space-y-1 mt-2">
+          {items.map((item, index) => (
+            <li key={index} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeList.cardAlt }}>
+              <span className="text-sm flex items-center gap-2" style={{ color: themeList.text }}>
+                <span className="text-emerald-500">•</span> {item}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="text-rose-500 hover:text-rose-600 transition"
+              >
+                <Trash size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm p-2 rounded-lg" style={{ color: themeList.textLight, backgroundColor: themeList.cardAlt }}>Aucun élément ajouté</p>
+      )}
+    </div>
+  );
+};
 
 // ============================================
 // COMPOSANT PRINCIPAL DASHBOARD ETUDIANT AVEC MODE SOMBRE
 // ============================================
-export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword, darkMode }) {
+export function DashboardEtudiant({ etudiant, offres = offersData, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword, darkMode = false }) {
   
   // Thème basé sur darkMode
   const theme = {
@@ -290,13 +226,17 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   // 1. TOUS LES useState (en premier)
   // ============================================
   const [activeMenu, setActiveMenu] = useState("offres");
-  const [filters, setFilters] = useState({
-    search: '',
-    types: [],
-    villes: [],
-    remunere: null,
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({ 
+    search: '', 
+    type: '', 
+    ville: '',
     duree: '',
-    competences: []
+    salaireMin: '',
+    salaireMax: ''
+  });
+  const [tempFilters, setTempFilters] = useState({
+    type: '', ville: '', duree: '', salaireMin: '', salaireMax: ''
   });
   const [favoris, setFavoris] = useState({});
   const [showCvModal, setShowCvModal] = useState(false);
@@ -314,20 +254,29 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     adresse: etudiant?.adresse || "", bio: etudiant?.bio || ""
   });
   
-  // États pour le CV
+  // États pour le CV - Version avec listes
   const [uploadedCv, setUploadedCv] = useState(null);
   const [cvName, setCvName] = useState(etudiant?.cvName || "");
   const [isCvEditing, setIsCvEditing] = useState(false);
-  const [customCvExtra, setCustomCvExtra] = useState({
-    experience: "", formation: "", langues: "", centresInteret: ""
-  });
+  
+  // Nouvelles listes pour le CV
+  const [experiences, setExperiences] = useState([]);
+  const [formations, setFormations] = useState([]);
+  const [langues, setLangues] = useState([]);
+  const [centresInteret, setCentresInteret] = useState([]);
+  
+  // États temporaires pour les ajouts
+  const [newExperience, setNewExperience] = useState("");
+  const [newFormation, setNewFormation] = useState("");
+  const [newLangue, setNewLangue] = useState("");
+  const [newCentreInteret, setNewCentreInteret] = useState("");
 
   // États pour le mot de passe
   const [passwordData, setPasswordData] = useState({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // ============================================
-  // 2. FONCTION getCurrentCv
+  // 2. FONCTION getCurrentCv (modifiée avec les listes)
   // ============================================
   const getCurrentCv = useCallback(() => {
     return {
@@ -340,12 +289,12 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
       universite: formData.universite || etudiant?.universite || "",
       filiere: formData.filiere || etudiant?.filiere || "",
       niveau: formData.niveau || etudiant?.niveau || "",
-      experience: customCvExtra.experience,
-      formation: customCvExtra.formation,
-      langues: customCvExtra.langues,
-      centresInteret: customCvExtra.centresInteret
+      experiences: experiences,
+      formations: formations,
+      langues: langues,
+      centresInteret: centresInteret
     };
-  }, [formData, etudiant, customCvExtra]);
+  }, [formData, etudiant, experiences, formations, langues, centresInteret]);
 
   // ============================================
   // 3. showNotification
@@ -356,70 +305,166 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, []);
 
   // ============================================
-  // 4. FILTRAGE DES OFFRES
+  // 4. FONCTIONS POUR GÉRER LES LISTES DU CV
   // ============================================
+  
+  // Gestion des Expériences
+  const addExperience = () => {
+    if (newExperience.trim()) {
+      setExperiences([...experiences, newExperience.trim()]);
+      setNewExperience("");
+      showNotification('success', "✅ Expérience ajoutée");
+    }
+  };
+
+  const removeExperience = (index) => {
+    setExperiences(experiences.filter((_, i) => i !== index));
+    showNotification('success', "❌ Expérience supprimée");
+  };
+
+  // Gestion des Formations
+  const addFormation = () => {
+    if (newFormation.trim()) {
+      setFormations([...formations, newFormation.trim()]);
+      setNewFormation("");
+      showNotification('success', "✅ Formation ajoutée");
+    }
+  };
+
+  const removeFormation = (index) => {
+    setFormations(formations.filter((_, i) => i !== index));
+    showNotification('success', "❌ Formation supprimée");
+  };
+
+  // Gestion des Langues
+  const addLangue = () => {
+    if (newLangue.trim()) {
+      setLangues([...langues, newLangue.trim()]);
+      setNewLangue("");
+      showNotification('success', "✅ Langue ajoutée");
+    }
+  };
+
+  const removeLangue = (index) => {
+    setLangues(langues.filter((_, i) => i !== index));
+    showNotification('success', "❌ Langue supprimée");
+  };
+
+  // Gestion des Centres d'intérêt
+  const addCentreInteret = () => {
+    if (newCentreInteret.trim()) {
+      setCentresInteret([...centresInteret, newCentreInteret.trim()]);
+      setNewCentreInteret("");
+      showNotification('success', "✅ Centre d'intérêt ajouté");
+    }
+  };
+
+  const removeCentreInteret = (index) => {
+    setCentresInteret(centresInteret.filter((_, i) => i !== index));
+    showNotification('success', "❌ Centre d'intérêt supprimé");
+  };
+
+  // ============================================
+  // 5. FILTRAGE DES OFFRES
+  // ============================================
+  const offresDisponibles = useMemo(() => {
+    const offresData = offres || offersData;
+    return offresData.filter(o => o.statut !== 'inactive');
+  }, [offres]);
+
   const offresFiltrees = useMemo(() => {
-    if (!offersData) return [];
+    const data = offresDisponibles;
+    if (!data) return [];
 
-    return offersData.filter(offre => {
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchSearch = 
-          offre.titre?.toLowerCase().includes(searchLower) ||
-          offre.entreprise?.toLowerCase().includes(searchLower) ||
-          offre.description?.toLowerCase().includes(searchLower) ||
-          offre.competences?.some(c => c.toLowerCase().includes(searchLower));
-        if (!matchSearch) return false;
+    return data.filter(offre => {
+      const matchSearch = !filters.search || 
+                         offre.titre?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                         offre.entreprise?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                         offre.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
+                         offre.competences?.some(c => c.toLowerCase().includes(filters.search.toLowerCase()));
+      
+      const matchType = !filters.type || 
+                        offre.type?.toLowerCase().includes(filters.type.toLowerCase());
+      
+      const matchVille = !filters.ville || 
+                         offre.lieu?.toLowerCase().includes(filters.ville.toLowerCase());
+      
+      const matchDuree = !filters.duree || 
+                         offre.duree?.toLowerCase().includes(filters.duree.toLowerCase());
+      
+      let matchSalaire = true;
+      const salaireOffre = offre.salaire || '';
+      const montantOffre = parseInt(salaireOffre.replace(/[^0-9]/g, ''));
+      
+      if (!isNaN(montantOffre)) {
+        if (filters.salaireMin) {
+          const salaireMin = parseInt(filters.salaireMin);
+          if (!isNaN(salaireMin) && montantOffre < salaireMin) matchSalaire = false;
+        }
+        if (filters.salaireMax && matchSalaire) {
+          const salaireMax = parseInt(filters.salaireMax);
+          if (!isNaN(salaireMax) && montantOffre > salaireMax) matchSalaire = false;
+        }
+      } else {
+        if (filters.salaireMin && filters.salaireMin !== '0') matchSalaire = false;
       }
-      if (filters.types.length > 0 && !filters.types.includes(offre.type)) return false;
-      if (filters.villes.length > 0 && !filters.villes.includes(offre.lieu)) return false;
-      if (filters.remunere !== null) {
-        const isRemunere = offre.salaire !== 'Non rémunéré';
-        if (isRemunere !== filters.remunere) return false;
-      }
-      if (filters.duree) {
-        const dureeValue = parseInt(offre.duree);
-        if (filters.duree === 'court' && (isNaN(dureeValue) || dureeValue > 3)) return false;
-        if (filters.duree === 'moyen' && (isNaN(dureeValue) || dureeValue < 3 || dureeValue > 6)) return false;
-        if (filters.duree === 'long' && (isNaN(dureeValue) || dureeValue <= 6)) return false;
-      }
-      if (filters.competences.length > 0) {
-        const offreCompetences = offre.competences?.map(c => c.toLowerCase()) || [];
-        const hasMatch = filters.competences.some(comp =>
-          offreCompetences.some(oc => oc.includes(comp.toLowerCase()))
-        );
-        if (!hasMatch) return false;
-      }
-      return true;
+      
+      return matchSearch && matchType && matchVille && matchDuree && matchSalaire;
     });
-  }, [filters]);
+  }, [offresDisponibles, filters]);
 
   // ============================================
-  // 5. AUTRES useMemo
+  // 6. AUTRES useMemo
   // ============================================
   const mesCandidatures = useMemo(() => candidatures?.filter(c => c.etudiantId === etudiant?.id) || [], [candidatures, etudiant?.id]);
-  const offresFavoris = useMemo(() => offersData?.filter(o => favoris[o.id]) || [], [favoris]);
+  const offresFavoris = useMemo(() => offresDisponibles?.filter(o => favoris[o.id]) || [], [offresDisponibles, favoris]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
-    if (filters.types.length) count++;
-    if (filters.villes.length) count++;
-    if (filters.remunere !== null) count++;
+    if (filters.type) count++;
+    if (filters.ville) count++;
     if (filters.duree) count++;
-    if (filters.competences.length) count++;
+    if (filters.salaireMin) count++;
+    if (filters.salaireMax) count++;
     return count;
   }, [filters]);
 
-  const handleResetFilters = useCallback(() => {
-    setFilters({
-      search: '', types: [], villes: [], remunere: null, duree: '', competences: []
+  // ============================================
+  // 7. GESTION DES FILTRES
+  // ============================================
+  const openFilterModal = () => {
+    setTempFilters({
+      type: filters.type,
+      ville: filters.ville,
+      duree: filters.duree,
+      salaireMin: filters.salaireMin,
+      salaireMax: filters.salaireMax
     });
-    showNotification('success', "✅ Tous les filtres ont été réinitialisés");
-  }, [showNotification]);
+    setShowFilterModal(true);
+  };
+
+  const applyFilters = () => {
+    setFilters({
+      ...filters,
+      type: tempFilters.type,
+      ville: tempFilters.ville,
+      duree: tempFilters.duree,
+      salaireMin: tempFilters.salaireMin,
+      salaireMax: tempFilters.salaireMax
+    });
+    setShowFilterModal(false);
+    showNotification('success', "Filtres appliqués");
+  };
+
+  const resetFilters = () => {
+    setFilters({ search: '', type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' });
+    setTempFilters({ type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' });
+    showNotification('success', "Filtres réinitialisés");
+  };
 
   // ============================================
-  // 6. GESTION DES FAVORIS
+  // 8. GESTION DES FAVORIS
   // ============================================
   const toggleFavori = useCallback((offreId) => {
     setFavoris(prev => ({ ...prev, [offreId]: !prev[offreId] }));
@@ -427,7 +472,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, [favoris, showNotification]);
 
   // ============================================
-  // 7. GESTION DE LA CANDIDATURE
+  // 9. GESTION DE LA CANDIDATURE
   // ============================================
   const handlePostuler = useCallback((offre) => {
     setSelectedOffre(offre);
@@ -450,7 +495,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, [uploadedCv, getCurrentCv, onPostuler, selectedOffre, showNotification]);
 
   // ============================================
-  // 8. GESTION DU CV
+  // 10. GESTION DU CV (Upload, Download)
   // ============================================
   const handleCVUpload = useCallback((e) => {
     const file = e.target.files[0];
@@ -480,52 +525,208 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     setIsCvEditing(false);
   }, [showNotification]);
 
-  const handleDownloadCV = useCallback(() => {
-    const cv = getCurrentCv();
+ // Téléchargement du CV en PDF - Version simple et élégante
+const handleDownloadCV = useCallback(() => {
+  const cv = getCurrentCv();
+  const doc = new jsPDF();
+  
+  let yPos = 25;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 20;
+  
+  // ========== TITRE ==========
+  doc.setFontSize(22);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text("CURRICULUM VITAE", pageWidth / 2, yPos, { align: "center" });
+  
+  yPos += 10;
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(51, 65, 85);
+  doc.text(`${cv.nom} ${cv.prenom}`, pageWidth / 2, yPos, { align: "center" });
+  
+  // Ligne de séparation
+  yPos += 8;
+  doc.setDrawColor(16, 185, 129);
+  doc.line(marginX, yPos, pageWidth - marginX, yPos);
+  
+  // ========== CONTACT ==========
+  yPos += 10;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text("CONTACT", marginX, yPos);
+  
+  yPos += 6;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(75, 85, 99);
+  
+  doc.text(`Email : ${cv.email}`, marginX + 5, yPos);
+  yPos += 5;
+  doc.text(`Téléphone : ${cv.telephone || 'Non renseigné'}`, marginX + 5, yPos);
+  yPos += 5;
+  doc.text(`Adresse : ${cv.adresse || 'Non renseignée'}`, marginX + 5, yPos);
+  
+  // ========== FORMATION ==========
+  yPos += 12;
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text("FORMATION", marginX, yPos);
+  
+  yPos += 6;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(75, 85, 99);
+  
+  doc.text(`Université : ${cv.universite || 'Non renseignée'}`, marginX + 5, yPos);
+  yPos += 5;
+  doc.text(`Filière : ${cv.filiere || 'Non renseignée'}`, marginX + 5, yPos);
+  yPos += 5;
+  doc.text(`Niveau : ${cv.niveau || 'Non renseigné'}`, marginX + 5, yPos);
+  
+  // ========== COMPETENCES ==========
+  yPos += 12;
+  if (yPos > 250) { doc.addPage(); yPos = 25; }
+  
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(16, 185, 129);
+  doc.text("COMPETENCES", marginX, yPos);
+  
+  yPos += 6;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(75, 85, 99);
+  
+  if (cv.competences.length > 0) {
+    let ligneCompetence = "";
+    cv.competences.forEach((comp, index) => {
+      ligneCompetence += comp;
+      if (index < cv.competences.length - 1) ligneCompetence += "  |  ";
+    });
+    const lignes = doc.splitTextToSize(ligneCompetence, pageWidth - marginX - 10);
+    doc.text(lignes, marginX + 5, yPos);
+    yPos += (lignes.length * 5) + 5;
+  } else {
+    doc.text("Aucune competence renseignee", marginX + 5, yPos);
+    yPos += 8;
+  }
+  
+  // ========== EXPERIENCES ==========
+  if (cv.experiences && cv.experiences.length > 0) {
+    yPos += 8;
+    if (yPos > 250) { doc.addPage(); yPos = 25; }
     
-    let cvContent = "=".repeat(50) + "\n";
-    cvContent += "                 CURRICULUM VITAE\n";
-    cvContent += "=".repeat(50) + "\n\n";
-    cvContent += "INFORMATIONS PERSONNELLES\n";
-    cvContent += "-".repeat(50) + "\n";
-    cvContent += `Nom complet : ${cv.nom} ${cv.prenom}\n`;
-    cvContent += `Email : ${cv.email}\n`;
-    cvContent += `Téléphone : ${cv.telephone || 'Non renseigné'}\n`;
-    cvContent += `Adresse : ${cv.adresse || 'Non renseignée'}\n\n`;
-    cvContent += "FORMATION ACADÉMIQUE\n";
-    cvContent += "-".repeat(50) + "\n";
-    cvContent += `Université : ${cv.universite || 'Non renseignée'}\n`;
-    cvContent += `Filière : ${cv.filiere || 'Non renseignée'}\n`;
-    cvContent += `Niveau : ${cv.niveau || 'Non renseigné'}\n\n`;
-    cvContent += "COMPÉTENCES\n";
-    cvContent += "-".repeat(50) + "\n";
-    cvContent += cv.competences.join(", ") || 'Non renseignées\n';
-    cvContent += "\n";
-    if (cv.experience) { cvContent += "EXPÉRIENCE PROFESSIONNELLE\n" + "-".repeat(50) + `\n${cv.experience}\n\n`; }
-    if (cv.formation) { cvContent += "FORMATION COMPLÉMENTAIRE\n" + "-".repeat(50) + `\n${cv.formation}\n\n`; }
-    if (cv.langues) { cvContent += "LANGUES\n" + "-".repeat(50) + `\n${cv.langues}\n\n`; }
-    if (cv.centresInteret) { cvContent += "CENTRES D'INTÉRÊT\n" + "-".repeat(50) + `\n${cv.centresInteret}\n\n`; }
-    cvContent += "=".repeat(50) + "\n";
-    cvContent += `Date de création : ${new Date().toLocaleDateString('fr-FR')}\n`;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("EXPERIENCES PROFESSIONNELLES", marginX, yPos);
     
-    const blob = new Blob([cvContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `CV_${cv.nom}_${cv.prenom}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showNotification('success', "✅ CV téléchargé");
-  }, [getCurrentCv, showNotification]);
-
-  const handleCvExtraChange = useCallback((e) => {
-    setCustomCvExtra(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  }, []);
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    
+    cv.experiences.forEach((exp) => {
+      if (yPos > 260) { doc.addPage(); yPos = 25; }
+      doc.text("- " + exp, marginX + 5, yPos);
+      yPos += 6;
+    });
+    yPos += 4;
+  }
+  
+  // ========== FORMATIONS COMPLEMENTAIRES ==========
+  if (cv.formations && cv.formations.length > 0) {
+    yPos += 8;
+    if (yPos > 250) { doc.addPage(); yPos = 25; }
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("FORMATIONS COMPLEMENTAIRES", marginX, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    
+    cv.formations.forEach((formation) => {
+      if (yPos > 260) { doc.addPage(); yPos = 25; }
+      doc.text("- " + formation, marginX + 5, yPos);
+      yPos += 6;
+    });
+    yPos += 4;
+  }
+  
+  // ========== LANGUES ==========
+  if (cv.langues && cv.langues.length > 0) {
+    yPos += 8;
+    if (yPos > 250) { doc.addPage(); yPos = 25; }
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("LANGUES", marginX, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    
+    let ligneLangues = "";
+    cv.langues.forEach((langue, index) => {
+      ligneLangues += langue;
+      if (index < cv.langues.length - 1) ligneLangues += "  |  ";
+    });
+    doc.text(ligneLangues, marginX + 5, yPos);
+    yPos += 8;
+  }
+  
+  // ========== CENTRES D'INTERET ==========
+  if (cv.centresInteret && cv.centresInteret.length > 0) {
+    yPos += 8;
+    if (yPos > 250) { doc.addPage(); yPos = 25; }
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("CENTRES D'INTERET", marginX, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    
+    let ligneCentres = "";
+    cv.centresInteret.forEach((centre, index) => {
+      ligneCentres += centre;
+      if (index < cv.centresInteret.length - 1) ligneCentres += "  |  ";
+    });
+    doc.text(ligneCentres, marginX + 5, yPos);
+    yPos += 8;
+  }
+  
+  // ========== PIED DE PAGE ==========
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(156, 163, 175);
+  doc.text(
+    `Cree le ${new Date().toLocaleDateString('fr-FR')} via Stag.io`,
+    pageWidth / 2,
+    doc.internal.pageSize.getHeight() - 10,
+    { align: "center" }
+  );
+  
+  // Téléchargement
+  doc.save(`CV_${cv.nom}_${cv.prenom}.pdf`);
+  showNotification('success', "✅ CV PDF télécharge!");
+}, [getCurrentCv, showNotification]);
 
   // ============================================
-  // 9. GESTION DU PROFIL
+  // 11. GESTION DU PROFIL
   // ============================================
   const handleInputChange = useCallback((e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -535,14 +736,19 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     const updatedEtudiant = {
       ...etudiant, ...formData,
       competences: formData.competences.split(",").map(c => c.trim()).filter(c => c),
-      profilePhoto: photoPreview, cvName: cvName
+      profilePhoto: photoPreview, 
+      cvName: cvName,
+      experiences: experiences,
+      formations: formations,
+      langues: langues,
+      centresInteret: centresInteret
     };
     if (onUpdateProfil) {
       onUpdateProfil(updatedEtudiant);
     }
     setIsEditing(false);
     showNotification('success', "✅ Profil mis à jour");
-  }, [etudiant, formData, photoPreview, cvName, onUpdateProfil, showNotification]);
+  }, [etudiant, formData, photoPreview, cvName, experiences, formations, langues, centresInteret, onUpdateProfil, showNotification]);
 
   const handlePhotoUpload = useCallback((e) => {
     const file = e.target.files[0];
@@ -557,7 +763,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, [showNotification]);
 
   // ============================================
-  // 10. GESTION DU MOT DE PASSE
+  // 12. GESTION DU MOT DE PASSE
   // ============================================
   const handlePasswordChange = useCallback((e) => {
     setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -589,7 +795,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   }, [passwordData, etudiant, onChangePassword, showNotification]);
 
   // ============================================
-  // 11. MENU ITEMS
+  // 13. MENU ITEMS
   // ============================================
   const menuItems = [
     { id: "profil", label: "Mon profil", icon: <User size={18} /> },
@@ -608,7 +814,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
   };
 
   // ============================================
-  // 12. VÉRIFICATION QUE ETUDIANT EXISTE
+  // 14. VÉRIFICATION QUE ETUDIANT EXISTE
   // ============================================
   if (!etudiant) {
     return (
@@ -621,8 +827,10 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
     );
   }
 
+ 
+
   // ============================================
-  // 13. RENDU PRINCIPAL
+  // 15. RENDU PRINCIPAL
   // ============================================
   return (
     <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
@@ -633,6 +841,95 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
           <div className={`${notification.type === 'success' ? 'bg-emerald-500' : 'bg-rose-500'} text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-3`}>
             {notification.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
             <span className="font-medium">{notification.message}</span>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DES FILTRES */}
+      {showFilterModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="rounded-2xl max-w-md w-full shadow-2xl" style={{ backgroundColor: theme.card }}>
+            <div className="border-b px-6 py-4 flex justify-between items-center" style={{ borderColor: theme.border }}>
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: theme.text }}>
+                <Filter size={20} /> Filtres de recherche
+              </h3>
+              <button onClick={() => setShowFilterModal(false)} className="p-2 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} style={{ color: theme.text }} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Type de stage</label>
+                <input
+                  type="text"
+                  value={tempFilters.type}
+                  onChange={(e) => setTempFilters(prev => ({ ...prev, type: e.target.value }))}
+                  placeholder="Stage PFE, Stage, Alternance..."
+                  className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Wilaya</label>
+                <AutocompleteWilaya
+                  value={tempFilters.ville}
+                  onChange={(value) => setTempFilters(prev => ({ ...prev, ville: value }))}
+                  placeholder="Tapez le nom d'une wilaya..."
+                  darkMode={darkMode}
+                />
+                <p className="text-xs mt-1" style={{ color: theme.textLight }}>💡 Tapez "A" pour voir Alger, Adrar, Annaba...</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Durée</label>
+                <input
+                  type="text"
+                  value={tempFilters.duree}
+                  onChange={(e) => setTempFilters(prev => ({ ...prev, duree: e.target.value }))}
+                  placeholder="3 mois, 6 mois, 1 an..."
+                  className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Salaire Min (DA)</label>
+                  <input
+                    type="number"
+                    value={tempFilters.salaireMin}
+                    onChange={(e) => setTempFilters(prev => ({ ...prev, salaireMin: e.target.value }))}
+                    placeholder="Ex: 30000"
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Salaire Max (DA)</label>
+                  <input
+                    type="number"
+                    value={tempFilters.salaireMax}
+                    onChange={(e) => setTempFilters(prev => ({ ...prev, salaireMax: e.target.value }))}
+                    placeholder="Ex: 100000"
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  />
+                </div>
+              </div>
+              
+              <p className="text-xs p-2 rounded-lg" style={{ color: theme.textLight, backgroundColor: theme.cardAlt }}>
+                💡 Laisse vide pour ne pas filtrer
+              </p>
+            </div>
+            <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
+              <button onClick={applyFilters} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">
+                Appliquer les filtres
+              </button>
+              <button onClick={() => { setTempFilters({ type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' }); }} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
+                Effacer
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -648,9 +945,11 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
             <div className="p-6">
               <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
                 <p className="text-sm leading-relaxed" style={{ color: theme.text }}>{selectedOffre.description || "Aucune description disponible"}</p>
-                <div className="flex gap-2 mt-3">
+                <div className="flex flex-wrap gap-2 mt-3">
                   <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">{selectedOffre.type}</span>
                   <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">{selectedOffre.lieu}</span>
+                  <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full">{selectedOffre.duree}</span>
+                  <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">{selectedOffre.salaire}</span>
                 </div>
               </div>
               
@@ -775,6 +1074,7 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                 </div>
               </div>
 
+              {/* SECTION CV AVEC LISTES À PUCES */}
               <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
                 <div className="flex justify-between items-center mb-5">
                   <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: theme.text }}><FileText size={20} className="text-emerald-500" /> Curriculum Vitae (CV)</h3>
@@ -798,30 +1098,67 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
                   </div>
                 </div>
 
+                {/* Zone d'édition du CV avec listes */}
                 {isCvEditing && (
                   <div className="border-t pt-4 mt-2" style={{ borderColor: theme.border }}>
                     <h4 className="font-medium mb-3 flex items-center gap-2" style={{ color: theme.text }}><Edit size={16} className="text-emerald-500" /> Informations complémentaires</h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Expérience professionnelle</label>
-                        <textarea name="experience" value={customCvExtra.experience} onChange={handleCvExtraChange} rows="2" placeholder="Décrivez vos expériences..." className="w-full p-2 border rounded-lg text-sm" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Formation complémentaire</label>
-                        <textarea name="formation" value={customCvExtra.formation} onChange={handleCvExtraChange} rows="2" placeholder="Certifications, formations..." className="w-full p-2 border rounded-lg text-sm" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Langues</label>
-                        <input type="text" name="langues" value={customCvExtra.langues} onChange={handleCvExtraChange} placeholder="Arabe, Français, Anglais..." className="w-full p-2 border rounded-lg text-sm" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Centres d'intérêt</label>
-                        <input type="text" name="centresInteret" value={customCvExtra.centresInteret} onChange={handleCvExtraChange} placeholder="Sport, lecture, voyage..." className="w-full p-2 border rounded-lg text-sm" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                      </div>
-                    </div>
+                    
+                    {/* Liste des Expériences */}
+                   <ListSection 
+  title="Expérience professionnelle"
+  items={experiences}
+  onAdd={addExperience}
+  onRemove={removeExperience}
+  newValue={newExperience}
+  setNewValue={setNewExperience}
+  placeholder="Ex: Stage chez ABC, 2023 - 2024"
+  darkMode={darkMode}
+/>
+                    
+                    {/* Liste des Formations */}
+                    <ListSection
+                      title="Formation complémentaire"
+                      items={formations}
+                      onAdd={addFormation}
+                      onRemove={removeFormation}
+                      newValue={newFormation}
+                      setNewValue={setNewFormation}
+                      placeholder="Ex: Certification React, 2024"
+                      darkMode={darkMode}
+                    />
+                    
+                    {/* Liste des Langues */}
+                    <ListSection
+                      title="Langues"
+                      items={langues}
+                      onAdd={addLangue}
+                      onRemove={removeLangue}
+                      newValue={newLangue}
+                      setNewValue={setNewLangue}
+                      placeholder="Ex: Arabe (natif), Français (courant), Anglais (intermédiaire)"
+                      darkMode={darkMode}
+                    />
+                    
+                    {/* Liste des Centres d'intérêt */}
+                    <ListSection
+                      title="Centres d'intérêt"
+                      items={centresInteret}
+                      onAdd={addCentreInteret}
+                      onRemove={removeCentreInteret}
+                      newValue={newCentreInteret}
+                      setNewValue={setNewCentreInteret}
+                      placeholder="Ex: Sport, lecture, voyage"
+                      darkMode={darkMode}
+                    />
+                    
                     <div className="mt-3 flex gap-2">
                       <button onClick={handleGenerateCVFromProfile} className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-600">Mettre à jour le CV</button>
-                      <button onClick={() => setCustomCvExtra({ experience: "", formation: "", langues: "", centresInteret: "" })} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600">Effacer</button>
+                      <button onClick={() => {
+                        setExperiences([]);
+                        setFormations([]);
+                        setLangues([]);
+                        setCentresInteret([]);
+                      }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600">Tout effacer</button>
                     </div>
                   </div>
                 )}
@@ -835,70 +1172,110 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
             </div>
           )}
 
-          {/* ==================== LISTE DES OFFRES AVEC FILTRES ==================== */}
+          {/* ==================== LISTE DES OFFRES ==================== */}
           {activeMenu === "offres" && (
-            <div className="flex gap-5">
-              <RadhoumFilters 
-                filters={filters}
-                setFilters={setFilters}
-                activeFiltersCount={activeFiltersCount}
-                onReset={handleResetFilters}
-                darkMode={darkMode}
-              />
-              
-              <div className="flex-1 space-y-4">
-                <div className="flex justify-between items-center">
-                  <p className="text-sm" style={{ color: theme.textLight }}>
-                    <span className="font-bold text-emerald-500">{offresFiltrees.length}</span> offre{offresFiltrees.length > 1 ? 's' : ''} trouvée{offresFiltrees.length > 1 ? 's' : ''}
-                  </p>
+            <div className="space-y-5">
+              <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
+                <div className="flex gap-3 flex-wrap items-center">
+                  <div className="flex-1 relative">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
+                    <input 
+                      type="text" 
+                      placeholder="Rechercher par titre, entreprise, description ou compétences..." 
+                      value={filters.search} 
+                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))} 
+                      className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-400"
+                      style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                    />
+                  </div>
+                  <button 
+                    onClick={openFilterModal} 
+                    className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all ${activeFiltersCount > 0 ? 'bg-emerald-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                  >
+                    <SlidersHorizontal size={16} />
+                    Filtres
+                    {activeFiltersCount > 0 && (
+                      <span className="bg-white text-emerald-600 text-xs rounded-full px-1.5 py-0.5 ml-1">{activeFiltersCount}</span>
+                    )}
+                  </button>
                   {activeFiltersCount > 0 && (
-                    <button onClick={handleResetFilters} className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 text-sm flex items-center gap-1">
-                      <X size={14} /> Effacer tous les filtres
+                    <button onClick={resetFilters} className="text-rose-500 text-sm hover:text-rose-600 flex items-center gap-1">
+                      <X size={14} /> Réinitialiser
                     </button>
                   )}
                 </div>
 
-                {offresFiltrees.length > 0 ? (
-                  <div className="space-y-4">
-                    {offresFiltrees.map(offre => (
-                      <div key={offre.id} className="rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-                        <div className="p-5">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex gap-2 mb-2 flex-wrap">
-                                <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full">{offre.type}</span>
-                                {offre.salaire !== 'Non rémunéré' && <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">💰 Rémunéré</span>}
-                                <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">⏱️ {offre.duree}</span>
-                              </div>
-                              <h3 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{offre.titre}</h3>
-                              <div className="flex items-center gap-2 mb-3" style={{ color: theme.textLight }}><Building2 size={16} /><span className="text-sm">{offre.entreprise}</span></div>
-                              <div className="flex flex-wrap gap-4 mb-3 text-sm"><span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu}</span><span className="flex items-center gap-1 text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span></div>
-                              <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}><p className="text-sm leading-relaxed" style={{ color: theme.text }}>{offre.description}</p></div>
-                              {offre.competences && offre.competences.length > 0 && (
-                                <div className="mt-3"><p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p><div className="flex flex-wrap gap-2">{offre.competences.map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}</div></div>
-                              )}
-                            </div>
-                            <div className="flex flex-col items-end gap-3 ml-4">
-                              <button onClick={() => toggleFavori(offre.id)} className={`p-2 rounded-full transition-all ${favoris[offre.id] ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-rose-100 dark:hover:bg-rose-900 hover:text-rose-500"}`}><Heart size={20} fill={favoris[offre.id] ? "white" : "none"} /></button>
-                              <button onClick={() => handlePostuler(offre)} className="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium transition-colors">Postuler</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-                    <Search size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-                    <p style={{ color: theme.textLight }}>Aucune offre ne correspond à vos critères</p>
-                    {activeFiltersCount > 0 && (
-                      <button onClick={handleResetFilters} className="mt-3 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">
-                        Effacer tous les filtres
-                      </button>
-                    )}
+                {activeFiltersCount > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {filters.type && <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">Type: {filters.type}</span>}
+                    {filters.ville && <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">Wilaya: {filters.ville}</span>}
+                    {filters.duree && <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full">Durée: {filters.duree}</span>}
+                    {filters.salaireMin && <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">Salaire min: {filters.salaireMin} DA</span>}
+                    {filters.salaireMax && <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">Salaire max: {filters.salaireMax} DA</span>}
                   </div>
                 )}
               </div>
+              
+              {offresFiltrees.length > 0 ? (
+                <>
+                  <div className="text-sm" style={{ color: theme.textLight }}>{offresFiltrees.length} offre(s) trouvée(s)</div>
+                  {offresFiltrees.map(offre => (
+                    <div key={offre.id} className="rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+                      <div className="p-5">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full">{offre.type || 'Stage'}</span>
+                              {offre.salaire && offre.salaire !== 'Non rémunéré' && offre.salaire !== 'Non spécifié' && (
+                                <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full flex items-center gap-1">
+                                  <DollarSign size={12} /> {offre.salaire}
+                                </span>
+                              )}
+                              {offre.salaire === 'Non rémunéré' && (
+                                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium rounded-full">Non rémunéré</span>
+                              )}
+                            </div>
+                            <h3 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{offre.titre}</h3>
+                            <div className="flex items-center gap-2 mb-3" style={{ color: theme.textLight }}><Building2 size={16} /><span className="text-sm">{offre.entreprise}</span></div>
+                            <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
+                              <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu || 'Non spécifié'}</span>
+                              <span className="flex items-center gap-1"><Clock size={14} /> {offre.duree || 'Non spécifiée'}</span>
+                            </div>
+                            {offre.description && (
+                              <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                                <p className="text-sm leading-relaxed" style={{ color: theme.text }}>{offre.description}</p>
+                              </div>
+                            )}
+                            {offre.competences && offre.competences.length > 0 && (
+                              <div className="mt-3">
+                                <p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {offre.competences.slice(0, 4).map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}
+                                  {offre.competences.length > 4 && <span className="text-xs" style={{ color: theme.textLight }}>+{offre.competences.length - 4}</span>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col items-end gap-3 ml-4">
+                            <button onClick={() => toggleFavori(offre.id)} className={`p-2 rounded-full transition-all ${favoris[offre.id] ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-rose-100 dark:hover:bg-rose-900 hover:text-rose-500"}`}>
+                              <Heart size={20} fill={favoris[offre.id] ? "white" : "none"} />
+                            </button>
+                            <button onClick={() => handlePostuler(offre)} className="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">
+                              Postuler
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                  <Briefcase size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                  <p style={{ color: theme.textLight }}>Aucune offre ne correspond à vos critères</p>
+                  <button onClick={resetFilters} className="mt-3 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">Réinitialiser les filtres →</button>
+                </div>
+              )}
             </div>
           )}
           
@@ -983,12 +1360,23 @@ export function DashboardEtudiant({ etudiant, offres, candidatures, onPostuler, 
               <h3 className="font-bold text-xl mb-5" style={{ color: theme.text }}>📚 Centre d'aide</h3>
               <div className="space-y-3">
                 <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                  <p className="font-semibold" style={{ color: theme.text }}>🔍 Comment utiliser la recherche ?</p>
+                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>
+                    • Barre de recherche : cherche dans les titres, entreprises, descriptions et compétences<br />
+                    • Cliquez sur "Filtres" pour ouvrir une fenêtre et écrire vos critères :<br />
+                    &nbsp;&nbsp;- Type de stage (Stage, Stage PFE, Alternance)<br />
+                    &nbsp;&nbsp;- Wilaya (tapez les premières lettres pour voir les suggestions)<br />
+                    &nbsp;&nbsp;- Durée (3 mois, 6 mois...)<br />
+                    &nbsp;&nbsp;- Salaire minimum et maximum (en DA)<br />
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
                   <p className="font-semibold" style={{ color: theme.text }}>📝 Comment postuler ?</p>
                   <p className="text-sm mt-1" style={{ color: theme.textLight }}>1. Allez dans "Liste des offres"<br />2. Choisissez une offre<br />3. Cliquez sur "Postuler"<br />4. Choisissez votre CV (upload ou CV du profil)<br />5. Confirmez</p>
                 </div>
                 <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                  <p className="font-semibold" style={{ color: theme.text }}>🔍 Comment utiliser les filtres avancés ?</p>
-                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Vous pouvez combiner plusieurs critères : recherche textuelle, multi-sélection des types et villes, filtrage par rémunération et durée, ajout de compétences spécifiques.</p>
+                  <p className="font-semibold" style={{ color: theme.text }}>❤️ Comment ajouter une offre en favori ?</p>
+                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Cliquez sur le cœur ❤️ à côté de l'offre</p>
                 </div>
                 <div className="p-4 rounded-xl border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
                   <p className="font-semibold text-emerald-600 dark:text-emerald-400">📧 Besoin d'aide ?</p>

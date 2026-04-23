@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { TrendingUp, Building2, GraduationCap, LogOut, UserCog, Moon, Sun } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { TrendingUp, Building2, GraduationCap, LogOut, UserCog, Moon, Sun, Shield } from "lucide-react";
 import { offresData, entreprisesData, etudiantsData, candidaturesData } from './data/data';
 import { Notification } from './Components/Notification';
 import { ModalAuth } from './Components/ModalAuth';
@@ -10,6 +10,18 @@ import { DashboardAdmin } from './pages/DashboardAdmin';
 import { DashboardEntreprise } from './pages/DashboardEntreprise';
 import { DashboardEtudiant } from './pages/DashboardEtudiant';
 
+// ============================================
+// COMPTES ADMIN (UNIVERSITÉS) - AJOUTÉS MANUELLEMENT
+// Ces comptes ne peuvent PAS s'inscrire, seulement se connecter
+// ============================================
+const adminsData = [
+  { id: 1, nom: "Université d'Alger", email: "admin@stag.io", password: "admin123", role: "admin" },
+  { id: 2, nom: "USTHB", email: "admin@usthb.dz", password: "admin123", role: "admin" },
+  { id: 3, nom: "Université d'Oran", email: "admin@univ-oran.dz", password: "admin123", role: "admin" },
+  { id: 4, nom: "Université de Constantine", email: "admin@univ-constantine.dz", password: "admin123", role: "admin" },
+  { id: 5, nom: "Université d'Annaba", email: "admin@univ-annaba.dz", password: "admin123", role: "admin" }
+];
+
 function App() {
   const [user, setUser] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -19,7 +31,6 @@ function App() {
   const [modalPostuler, setModalPostuler] = useState(null);
   const [page, setPage] = useState("accueil");
   const [darkMode, setDarkMode] = useState(() => {
-    // Vérifier si l'utilisateur a déjà une préférence
     const saved = localStorage.getItem('darkMode');
     return saved === 'true' || (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
@@ -28,6 +39,9 @@ function App() {
   const [entreprises, setEntreprises] = useState(entreprisesData);
   const [etudiants, setEtudiants] = useState(etudiantsData);
   const [candidatures, setCandidatures] = useState(candidaturesData);
+  
+  // Admins stockés dans le state (comme une table BD)
+  const [admins, setAdmins] = useState(adminsData);
 
   // Appliquer le mode sombre
   const toggleDarkMode = () => {
@@ -41,22 +55,28 @@ function App() {
     }
   };
 
-  // Initialiser le mode sombre au démarrage
-  useState(() => {
+  useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
     }
   }, []);
 
   const handleLogin = (email, password, userType) => {
-    // Vérifier admin
-    if (email === "admin@stag.io" && password === "admin123") {
-      setUser({ id: 0, nom: "Administrateur", email, role: "admin" });
-      setNotification({ message: "✅ Bienvenue Administrateur!", type: "success" });
-      setShowAuthModal(false);
-      return;
+    // 🔐 ADMINS : UNIQUEMENT CONNEXION (pas d'inscription)
+    if (userType === "admin") {
+      const admin = admins.find(a => a.email === email && a.password === password);
+      if (admin) {
+        setUser({ id: admin.id, nom: admin.nom, email, role: "admin" });
+        setNotification({ message: `🏛️ Bienvenue ${admin.nom}!`, type: "success" });
+        setShowAuthModal(false);
+        return;
+      } else {
+        setNotification({ message: "❌ Compte admin non trouvé. Contactez l'administrateur.", type: "error" });
+        return;
+      }
     }
     
+    // ✅ ENTREPRISES : connexion
     if (userType === "entreprise") {
       const entreprise = entreprises.find(e => e.email === email && e.password === password);
       if (entreprise) {
@@ -67,6 +87,7 @@ function App() {
       }
     }
     
+    // ✅ ÉTUDIANTS : connexion
     if (userType === "etudiant") {
       const etudiant = etudiants.find(e => e.email === email && e.password === password);
       if (etudiant) {
@@ -87,7 +108,24 @@ function App() {
   };
 
   const handleRegister = (data) => {
+    // 🚫 EMPÊCHER L'INSCRIPTION DES ADMINS
+    if (data.role === "admin") {
+      setNotification({ 
+        message: "❌ L'inscription des comptes administrateur est désactivée. Veuillez contacter l'administrateur système.", 
+        type: "error" 
+      });
+      return;
+    }
+    
+    // ✅ INSCRIPTION ENTREPRISES
     if (data.role === "entreprise") {
+      // Vérifier si l'email existe déjà
+      const emailExists = entreprises.some(e => e.email === data.email);
+      if (emailExists) {
+        setNotification({ message: "❌ Cet email est déjà utilisé!", type: "error" });
+        return;
+      }
+      
       const newEntreprise = { 
         id: entreprises.length + 1, 
         ...data, 
@@ -95,15 +133,25 @@ function App() {
         password: data.password
       };
       setEntreprises([...entreprises, newEntreprise]);
-    } else {
+      setNotification({ message: "✅ Inscription réussie! Connectez-vous.", type: "success" });
+    } 
+    // ✅ INSCRIPTION ÉTUDIANTS
+    else if (data.role === "etudiant") {
+      // Vérifier si l'email existe déjà
+      const emailExists = etudiants.some(e => e.email === data.email);
+      if (emailExists) {
+        setNotification({ message: "❌ Cet email est déjà utilisé!", type: "error" });
+        return;
+      }
+      
       const newEtudiant = { 
         id: etudiants.length + 1, 
         ...data,
         password: data.password
       };
       setEtudiants([...etudiants, newEtudiant]);
+      setNotification({ message: "✅ Inscription réussie! Connectez-vous.", type: "success" });
     }
-    setNotification({ message: "✅ Inscription réussie! Connectez-vous.", type: "success" });
     setAuthType("login");
   };
 
@@ -127,6 +175,7 @@ function App() {
       id: candidatures.length + 1,
       offreId: offre.id,
       offreTitre: offre.titre,
+      entreprise: offre.entreprise,
       etudiantId: user.id,
       etudiantNom: user.nom,
       email: user.email,
@@ -185,9 +234,25 @@ function App() {
     setShowAuthModal(true);
   };
 
+  // Configuration du ModalAuth pour cacher l'onglet "S'inscrire" pour les admins
+  const getModalConfig = () => {
+    // Pour les admins, on force le type à "login" et on cache l'inscription
+    if (authUserType === "admin") {
+      return {
+        forceLogin: true,
+        hideRegister: true
+      };
+    }
+    return {
+      forceLogin: false,
+      hideRegister: false
+    };
+  };
+
   const renderDashboard = () => {
     if (!user) return null;
     
+    // Les admins utilisent le DashboardAdmin existant
     if (user.role === "admin") {
       return (
         <DashboardAdmin 
@@ -199,18 +264,24 @@ function App() {
           onDeleteOffre={handleSupprimerOffre}
           onUpdateCandidature={handleUpdateCandidature}
           onLogout={handleLogout}
+          adminNom={user.nom}
         />
       );
     }
     
     if (user.role === "entreprise") {
       const entreprise = entreprises.find(e => e.id === user.id);
+      const offresEntreprise = offres.filter(o => o.entreprise === entreprise?.nom);
+      const candidaturesEntreprise = candidatures.filter(c => {
+        const offre = offres.find(o => o.id === c.offreId);
+        return offre?.entreprise === entreprise?.nom;
+      });
       return (
         <DashboardEntreprise 
           entreprise={entreprise}
-          offres={offres}
+          offres={offresEntreprise}
           darkMode={darkMode}
-          candidatures={candidatures}
+          candidatures={candidaturesEntreprise}
           onAjouterOffre={handleAjouterOffre}
           onSupprimerOffre={handleSupprimerOffre}
           onLogout={handleLogout}
@@ -238,6 +309,8 @@ function App() {
     
     return null;
   };
+
+  const modalConfig = getModalConfig();
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -275,32 +348,50 @@ function App() {
               <div className="flex items-center gap-4">
                 <div className={`flex items-center gap-2 px-3 py-1.5 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full transition-colors duration-300`}>
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm">
-                    {user.role === "entreprise" ? "🏢" : user.role === "admin" ? "👨‍💼" : "👨‍🎓"}
+                    {user.role === "admin" ? "🏛️" : user.role === "entreprise" ? "🏢" : "👨‍🎓"}
                   </div>
                   <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{user.nom}</span>
+                  {user.role === "admin" && (
+                    <span className="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Admin</span>
+                  )}
                 </div>
                 <button onClick={handleLogout} className="text-red-600 hover:text-red-700 font-semibold transition-colors">
                   Déconnexion
                 </button>
               </div>
             ) : (
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => openAuthModal("etudiant", "login")}
-                  className={`flex items-center gap-2 px-5 py-2 ${darkMode ? 'bg-gray-800 text-blue-400 border-blue-400' : 'bg-white text-blue-600 border-blue-600'} border-2 rounded-lg font-semibold hover:transition-all duration-300 hover:scale-105`}
-                >
-                  <GraduationCap size={18} />
-                  Espace Étudiant
-                </button>
-                
-                <button 
-                  onClick={() => openAuthModal("entreprise", "login")}
-                  className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all duration-300 hover:scale-105"
-                >
-                  <Building2 size={18} />
-                  Espace Entreprise
-                </button>
-              </div>
+              <div className="flex gap-2">
+  {/* Bouton Espace Étudiant */}
+  <button 
+    onClick={() => openAuthModal("etudiant", "login")}
+    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+      darkMode 
+        ? 'bg-gray-800 text-emerald-400 border-emerald-400 hover:bg-gray-700' 
+        : 'bg-white text-emerald-600 border-emerald-500 hover:bg-emerald-50'
+    } border rounded-md font-medium transition-all duration-200 hover:scale-105`}
+  >
+    <GraduationCap size={15} />
+    Étudiant
+  </button>
+  
+  {/* Bouton Espace Entreprise */}
+  <button 
+    onClick={() => openAuthModal("entreprise", "login")}
+    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+  >
+    <Building2 size={15} />
+    Entreprise
+  </button>
+
+  {/* Bouton Espace Admin - UNIQUEMENT CONNEXION */}
+  <button 
+    onClick={() => openAuthModal("admin", "login")}
+    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-all duration-200 hover:scale-105"
+  >
+    <Shield size={15} />
+    Admin
+  </button>
+</div>
             )}
           </div>
         </div>
@@ -317,6 +408,7 @@ function App() {
               onEnvoyerContact={handleEnvoyerContact}
               onOpenEspaceEtudiant={() => openAuthModal("etudiant", "login")}
               onOpenEspaceEntreprise={() => openAuthModal("entreprise", "login")}
+              onOpenEspaceAdmin={() => openAuthModal("admin", "login")}
               setPage={setPage}
             />
           )}
@@ -347,12 +439,14 @@ function App() {
         />
       )}
       
-      {/* Modal Auth */}
+      {/* Modal Auth - avec configuration spéciale pour les admins */}
       {showAuthModal && (
         <ModalAuth 
           type={authType}
           darkMode={darkMode}
           userType={authUserType}
+          forceLogin={authUserType === "admin"} // Force le mode login pour les admins
+          hideRegister={authUserType === "admin"} // Cache l'onglet inscription pour les admins
           onClose={() => {
             setShowAuthModal(false);
             setModalPostuler(null);
