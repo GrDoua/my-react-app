@@ -8,7 +8,7 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
   const [filiere, setFiliere] = useState("");
   const [universite, setUniversite] = useState("");
   const [secteur, setSecteur] = useState("");
-  const [competences, setCompetences] = useState("");
+  const [matricule, setMatricule] = useState("");
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [currentType, setCurrentType] = useState(type);
@@ -52,6 +52,8 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
     if (userType === "etudiant") {
       if (!filiere.trim()) newErrors.filiere = "Filière obligatoire";
       if (!universite.trim()) newErrors.universite = "Université obligatoire";
+      if (!matricule.trim()) newErrors.matricule = "Matricule obligatoire";
+
     }
     if (userType === "entreprise") {
       if (!secteur.trim()) newErrors.secteur = "Secteur d'activité obligatoire";
@@ -70,7 +72,7 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
         if (userType === "etudiant") {
           userData.filiere = filiere;
           userData.universite = universite;
-          userData.competences = competences.split(",").map(c => c.trim()).filter(c => c);
+          userData.matricule = matricule;
         }
         if (userType === "entreprise") {
           userData.secteur = secteur;
@@ -229,9 +231,9 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
                 />
                 <input
                   type="text"
-                  placeholder="Compétences (séparées par des virgules)"
-                  value={competences}
-                  onChange={(e) => setCompetences(e.target.value)}
+                  placeholder="Matricule"
+                  value={matricule}
+                  onChange={(e) => setMatricule(e.target.value)}
                   className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
                   style={{ 
                     backgroundColor: theme.inputBg, 

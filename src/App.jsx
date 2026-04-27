@@ -10,6 +10,7 @@ import { DashboardAdmin } from './pages/DashboardAdmin';
 import { DashboardEntreprise } from './pages/DashboardEntreprise';
 import { DashboardEtudiant } from './pages/DashboardEtudiant';
 
+
 // ============================================
 // COMPTES ADMIN (UNIVERSITÉS) - AJOUTÉS MANUELLEMENT
 // Ces comptes ne peuvent PAS s'inscrire, seulement se connecter
@@ -311,91 +312,110 @@ function App() {
   };
 
   const modalConfig = getModalConfig();
+  
+// COMPOSANT SCROLL TO TOP 
+
+function ScrollToTop({ darkMode }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > 200);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  if (!visible) return null;
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      className={`fixed bottom-6 right-6 p-4 rounded-full text-4xl font-bold shadow-lg transition-all hover:scale-110 z-50 ${
+        darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+      } text-white`}
+    >
+      ↑
+    </button>
+  );
+}
+
+  return (
+    <div className={`min-h-screen fade-in ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       <nav className={`${darkMode ? 'bg-gray-800 shadow-lg' : 'bg-white shadow-md'} sticky top-0 z-50 transition-colors duration-300`}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPage("accueil")}>
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <TrendingUp size={16} className="text-white" />
-            </div>
-            <h1 className={`text-2xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Stag.io</h1>
-          </div>
+                  <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => setPage("accueil")}>
+                      <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <TrendingUp size={16} className="text-white" />
+                      </div>
+                      <h1 className={`text-2xl font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Stag.io</h1>
+                    </div>
+                    
+                    {!user && (
+                      <div className="flex gap-6">
+                        <button onClick={() => setPage("accueil")} className={`${page === "accueil" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
+                          Accueil
+                        </button>
+                        <button onClick={() => setPage("offres")} className={`${page === "offres" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
+                          Offres
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-3 items-center">
+                      {/* Bouton mode sombre */}
+                      <button
+                        onClick={toggleDarkMode}
+                        className={`p-2 rounded-full transition-all duration-300 ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                        aria-label="Toggle dark mode"
+                      >
+                        {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                      </button>
           
-          {!user && (
-            <div className="flex gap-6">
-              <button onClick={() => setPage("accueil")} className={`${page === "accueil" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
-                Accueil
-              </button>
-              <button onClick={() => setPage("offres")} className={`${page === "offres" ? (darkMode ? "text-blue-400" : "text-blue-600") : (darkMode ? "text-gray-300" : "text-gray-600")} ${darkMode ? 'hover:text-blue-400' : 'hover:text-blue-600'} transition-all duration-300 hover:scale-110 font-semibold`}>
-                Offres
-              </button>
-            </div>
-          )}
-          
-          <div className="flex gap-3 items-center">
-            {/* Bouton mode sombre */}
-            <button
-              onClick={toggleDarkMode}
-              className={`p-2 rounded-full transition-all duration-300 ${darkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-              aria-label="Toggle dark mode"
+                      {user ? (
+                        <div className="flex items-center gap-4">
+                        
+                          <button onClick={handleLogout} className="text-red-600 hover:text-red-700 font-semibold transition-colors">
+                            Déconnexion
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+            {/* Bouton Espace Étudiant */}
+            <button 
+              onClick={() => openAuthModal("etudiant", "login")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
+                darkMode 
+                  ? 'bg-gray-800 text-emerald-400 border-emerald-400 hover:bg-gray-700' 
+                  : 'bg-white text-emerald-600 border-emerald-500 hover:bg-emerald-50'
+              } border rounded-md font-medium transition-all duration-200 hover:scale-105`}
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              <GraduationCap size={15} />
+              Étudiant
             </button>
-
-            {user ? (
-              <div className="flex items-center gap-4">
-                <div className={`flex items-center gap-2 px-3 py-1.5 ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-full transition-colors duration-300`}>
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm">
-                    {user.role === "admin" ? "🏛️" : user.role === "entreprise" ? "🏢" : "👨‍🎓"}
-                  </div>
-                  <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>{user.nom}</span>
-                  {user.role === "admin" && (
-                    <span className="ml-2 text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full">Admin</span>
-                  )}
-                </div>
-                <button onClick={handleLogout} className="text-red-600 hover:text-red-700 font-semibold transition-colors">
-                  Déconnexion
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-  {/* Bouton Espace Étudiant */}
-  <button 
-    onClick={() => openAuthModal("etudiant", "login")}
-    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm ${
-      darkMode 
-        ? 'bg-gray-800 text-emerald-400 border-emerald-400 hover:bg-gray-700' 
-        : 'bg-white text-emerald-600 border-emerald-500 hover:bg-emerald-50'
-    } border rounded-md font-medium transition-all duration-200 hover:scale-105`}
-  >
-    <GraduationCap size={15} />
-    Étudiant
-  </button>
-  
-  {/* Bouton Espace Entreprise */}
-  <button 
-    onClick={() => openAuthModal("entreprise", "login")}
-    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-105"
-  >
-    <Building2 size={15} />
-    Entreprise
-  </button>
-
-  {/* Bouton Espace Admin - UNIQUEMENT CONNEXION */}
-  <button 
-    onClick={() => openAuthModal("admin", "login")}
-    className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-all duration-200 hover:scale-105"
-  >
-    <Shield size={15} />
-    Admin
-  </button>
-</div>
-            )}
+            
+            {/* Bouton Espace Entreprise */}
+            <button 
+              onClick={() => openAuthModal("entreprise", "login")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+            >
+              <Building2 size={15} />
+              Entreprise
+            </button>
+          
+            {/* Bouton Espace Admin - UNIQUEMENT CONNEXION */}
+            <button 
+              onClick={() => openAuthModal("admin", "login")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-600 text-white rounded-md font-medium hover:bg-amber-700 transition-all duration-200 hover:scale-105"
+            >
+              <Shield size={15} />
+              Admin
+            </button>
           </div>
-        </div>
-      </nav>
+                      )}
+                    </div>
+                  </div>
+                </nav>
       
       {user ? (
         renderDashboard()
@@ -464,6 +484,7 @@ function App() {
           onClose={() => setNotification(null)}
         />
       )}
+      <ScrollToTop darkMode={darkMode} />
     </div>
   );
 }

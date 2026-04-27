@@ -145,8 +145,9 @@ function AutocompleteWilaya({ value, onChange, placeholder, darkMode }) {
     </div>
   );
 }
+
 // ============================================
-// COMPOSANT LIST SECTION (à mettre en dehors du composant principal)
+// COMPOSANT LIST SECTION
 // ============================================
 const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, placeholder, darkMode }) => {
   const themeList = {
@@ -206,7 +207,7 @@ const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, pla
 };
 
 // ============================================
-// COMPOSANT PRINCIPAL DASHBOARD ETUDIANT AVEC MODE SOMBRE
+// COMPOSANT PRINCIPAL DASHBOARD ETUDIANT
 // ============================================
 export function DashboardEtudiant({ etudiant, offres = offersData, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword, darkMode = false }) {
   
@@ -223,7 +224,7 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   };
 
   // ============================================
-  // 1. TOUS LES useState (en premier)
+  // 1. TOUS LES useState
   // ============================================
   const [activeMenu, setActiveMenu] = useState("offres");
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -247,19 +248,25 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   const [isEditing, setIsEditing] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(etudiant?.profilePhoto || null);
   const [formData, setFormData] = useState({
-    nom: etudiant?.nom || "", prenom: etudiant?.prenom || "", email: etudiant?.email || "",
-    matricule: etudiant?.matricule || "", filiere: etudiant?.filiere || "",
-    universite: etudiant?.universite || "", niveau: etudiant?.niveau || "",
-    competences: etudiant?.competences?.join(", ") || "", telephone: etudiant?.telephone || "",
-    adresse: etudiant?.adresse || "", bio: etudiant?.bio || ""
+    nom: etudiant?.nom || "", 
+    prenom: etudiant?.prenom || "", 
+    email: etudiant?.email || "",
+    matricule: etudiant?.matricule || "",
+    filiere: etudiant?.filiere || "",
+    universite: etudiant?.universite || "", 
+    niveau: etudiant?.niveau || "",
+    telephone: etudiant?.telephone || "",
+    adresse: etudiant?.adresse || "", 
+    bio: etudiant?.bio || "",
+    competences: etudiant?.competences?.join(", ") || ""
   });
   
-  // États pour le CV - Version avec listes
+  // États pour le CV
   const [uploadedCv, setUploadedCv] = useState(null);
   const [cvName, setCvName] = useState(etudiant?.cvName || "");
   const [isCvEditing, setIsCvEditing] = useState(false);
   
-  // Nouvelles listes pour le CV
+  // Listes pour le CV
   const [experiences, setExperiences] = useState([]);
   const [formations, setFormations] = useState([]);
   const [langues, setLangues] = useState([]);
@@ -276,19 +283,23 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // ============================================
-  // 2. FONCTION getCurrentCv (modifiée avec les listes)
+  // 2. FONCTION getCurrentCv
   // ============================================
   const getCurrentCv = useCallback(() => {
+    const competencesArray = formData.competences 
+      ? formData.competences.split(",").map(c => c.trim()).filter(c => c)
+      : [];
+      
     return {
       nom: formData.nom || etudiant?.nom || "",
       prenom: formData.prenom || etudiant?.prenom || "",
       email: formData.email || etudiant?.email || "",
       telephone: formData.telephone || etudiant?.telephone || "",
       adresse: formData.adresse || etudiant?.adresse || "",
-      competences: (formData.competences || etudiant?.competences?.join(", ") || "").split(",").map(c => c.trim()).filter(c => c),
       universite: formData.universite || etudiant?.universite || "",
       filiere: formData.filiere || etudiant?.filiere || "",
       niveau: formData.niveau || etudiant?.niveau || "",
+      competences: competencesArray,
       experiences: experiences,
       formations: formations,
       langues: langues,
@@ -307,8 +318,6 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   // ============================================
   // 4. FONCTIONS POUR GÉRER LES LISTES DU CV
   // ============================================
-  
-  // Gestion des Expériences
   const addExperience = () => {
     if (newExperience.trim()) {
       setExperiences([...experiences, newExperience.trim()]);
@@ -322,7 +331,6 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     showNotification('success', "❌ Expérience supprimée");
   };
 
-  // Gestion des Formations
   const addFormation = () => {
     if (newFormation.trim()) {
       setFormations([...formations, newFormation.trim()]);
@@ -336,7 +344,6 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     showNotification('success', "❌ Formation supprimée");
   };
 
-  // Gestion des Langues
   const addLangue = () => {
     if (newLangue.trim()) {
       setLangues([...langues, newLangue.trim()]);
@@ -350,7 +357,6 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     showNotification('success', "❌ Langue supprimée");
   };
 
-  // Gestion des Centres d'intérêt
   const addCentreInteret = () => {
     if (newCentreInteret.trim()) {
       setCentresInteret([...centresInteret, newCentreInteret.trim()]);
@@ -480,12 +486,17 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   }, []);
 
   const handleConfirmPostuler = useCallback(() => {
-    if (!uploadedCv && (!getCurrentCv().nom || !getCurrentCv().competences.length)) {
+    const currentCvData = getCurrentCv();
+    
+    // Vérifier si le CV est disponible (uploadé OU généré avec au moins nom/prenom)
+    const hasValidCv = uploadedCv || (currentCvData.nom && currentCvData.prenom);
+    
+    if (!hasValidCv) {
       showNotification('error', "❌ Veuillez compléter votre profil ou télécharger un CV");
       return;
     }
     
-    const cvToSend = uploadedCv || { type: 'generated', data: getCurrentCv() };
+    const cvToSend = uploadedCv || { type: 'generated', data: currentCvData };
     if (onPostuler) {
       onPostuler(selectedOffre, cvToSend);
     }
@@ -525,205 +536,201 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     setIsCvEditing(false);
   }, [showNotification]);
 
- // Téléchargement du CV en PDF - Version simple et élégante
-const handleDownloadCV = useCallback(() => {
-  const cv = getCurrentCv();
-  const doc = new jsPDF();
-  
-  let yPos = 25;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 20;
-  
-  // ========== TITRE ==========
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(16, 185, 129);
-  doc.text("CURRICULUM VITAE", pageWidth / 2, yPos, { align: "center" });
-  
-  yPos += 10;
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(51, 65, 85);
-  doc.text(`${cv.nom} ${cv.prenom}`, pageWidth / 2, yPos, { align: "center" });
-  
-  // Ligne de séparation
-  yPos += 8;
-  doc.setDrawColor(16, 185, 129);
-  doc.line(marginX, yPos, pageWidth - marginX, yPos);
-  
-  // ========== CONTACT ==========
-  yPos += 10;
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(16, 185, 129);
-  doc.text("CONTACT", marginX, yPos);
-  
-  yPos += 6;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  
-  doc.text(`Email : ${cv.email}`, marginX + 5, yPos);
-  yPos += 5;
-  doc.text(`Téléphone : ${cv.telephone || 'Non renseigné'}`, marginX + 5, yPos);
-  yPos += 5;
-  doc.text(`Adresse : ${cv.adresse || 'Non renseignée'}`, marginX + 5, yPos);
-  
-  // ========== FORMATION ==========
-  yPos += 12;
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(16, 185, 129);
-  doc.text("FORMATION", marginX, yPos);
-  
-  yPos += 6;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  
-  doc.text(`Université : ${cv.universite || 'Non renseignée'}`, marginX + 5, yPos);
-  yPos += 5;
-  doc.text(`Filière : ${cv.filiere || 'Non renseignée'}`, marginX + 5, yPos);
-  yPos += 5;
-  doc.text(`Niveau : ${cv.niveau || 'Non renseigné'}`, marginX + 5, yPos);
-  
-  // ========== COMPETENCES ==========
-  yPos += 12;
-  if (yPos > 250) { doc.addPage(); yPos = 25; }
-  
-  doc.setFontSize(12);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(16, 185, 129);
-  doc.text("COMPETENCES", marginX, yPos);
-  
-  yPos += 6;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(75, 85, 99);
-  
-  if (cv.competences.length > 0) {
-    let ligneCompetence = "";
-    cv.competences.forEach((comp, index) => {
-      ligneCompetence += comp;
-      if (index < cv.competences.length - 1) ligneCompetence += "  |  ";
-    });
-    const lignes = doc.splitTextToSize(ligneCompetence, pageWidth - marginX - 10);
-    doc.text(lignes, marginX + 5, yPos);
-    yPos += (lignes.length * 5) + 5;
-  } else {
-    doc.text("Aucune competence renseignee", marginX + 5, yPos);
+  // Téléchargement du CV en PDF
+  const handleDownloadCV = useCallback(() => {
+    const cv = getCurrentCv();
+    const doc = new jsPDF();
+    
+    let yPos = 25;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginX = 20;
+    
+    // Titre
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("CURRICULUM VITAE", pageWidth / 2, yPos, { align: "center" });
+    
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    doc.text(`${cv.nom} ${cv.prenom}`, pageWidth / 2, yPos, { align: "center" });
+    
     yPos += 8;
-  }
-  
-  // ========== EXPERIENCES ==========
-  if (cv.experiences && cv.experiences.length > 0) {
-    yPos += 8;
+    doc.setDrawColor(16, 185, 129);
+    doc.line(marginX, yPos, pageWidth - marginX, yPos);
+    
+    // Contact
+    yPos += 10;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("CONTACT", marginX, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Email : ${cv.email}`, marginX + 5, yPos);
+    yPos += 5;
+    doc.text(`Téléphone : ${cv.telephone || 'Non renseigné'}`, marginX + 5, yPos);
+    yPos += 5;
+    doc.text(`Adresse : ${cv.adresse || 'Non renseignée'}`, marginX + 5, yPos);
+    
+    // Formation
+    yPos += 12;
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(16, 185, 129);
+    doc.text("FORMATION", marginX, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(75, 85, 99);
+    doc.text(`Université : ${cv.universite || 'Non renseignée'}`, marginX + 5, yPos);
+    yPos += 5;
+    doc.text(`Filière : ${cv.filiere || 'Non renseignée'}`, marginX + 5, yPos);
+    yPos += 5;
+    doc.text(`Niveau : ${cv.niveau || 'Non renseigné'}`, marginX + 5, yPos);
+    
+    // Compétences
+    yPos += 12;
     if (yPos > 250) { doc.addPage(); yPos = 25; }
     
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(16, 185, 129);
-    doc.text("EXPERIENCES PROFESSIONNELLES", marginX, yPos);
+    doc.text("COMPETENCES", marginX, yPos);
     
     yPos += 6;
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(75, 85, 99);
     
-    cv.experiences.forEach((exp) => {
-      if (yPos > 260) { doc.addPage(); yPos = 25; }
-      doc.text("- " + exp, marginX + 5, yPos);
+    if (cv.competences.length > 0) {
+      let ligneCompetence = "";
+      cv.competences.forEach((comp, index) => {
+        ligneCompetence += comp;
+        if (index < cv.competences.length - 1) ligneCompetence += "  |  ";
+      });
+      const lignes = doc.splitTextToSize(ligneCompetence, pageWidth - marginX - 10);
+      doc.text(lignes, marginX + 5, yPos);
+      yPos += (lignes.length * 5) + 5;
+    } else {
+      doc.text("Aucune compétence renseignée", marginX + 5, yPos);
+      yPos += 8;
+    }
+    
+    // Expériences
+    if (cv.experiences && cv.experiences.length > 0) {
+      yPos += 8;
+      if (yPos > 250) { doc.addPage(); yPos = 25; }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129);
+      doc.text("EXPERIENCES PROFESSIONNELLES", marginX, yPos);
+      
       yPos += 6;
-    });
-    yPos += 4;
-  }
-  
-  // ========== FORMATIONS COMPLEMENTAIRES ==========
-  if (cv.formations && cv.formations.length > 0) {
-    yPos += 8;
-    if (yPos > 250) { doc.addPage(); yPos = 25; }
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(75, 85, 99);
+      
+      cv.experiences.forEach((exp) => {
+        if (yPos > 260) { doc.addPage(); yPos = 25; }
+        doc.text("- " + exp, marginX + 5, yPos);
+        yPos += 6;
+      });
+      yPos += 4;
+    }
     
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("FORMATIONS COMPLEMENTAIRES", marginX, yPos);
-    
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
-    
-    cv.formations.forEach((formation) => {
-      if (yPos > 260) { doc.addPage(); yPos = 25; }
-      doc.text("- " + formation, marginX + 5, yPos);
+    // Formations complémentaires
+    if (cv.formations && cv.formations.length > 0) {
+      yPos += 8;
+      if (yPos > 250) { doc.addPage(); yPos = 25; }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129);
+      doc.text("FORMATIONS COMPLEMENTAIRES", marginX, yPos);
+      
       yPos += 6;
-    });
-    yPos += 4;
-  }
-  
-  // ========== LANGUES ==========
-  if (cv.langues && cv.langues.length > 0) {
-    yPos += 8;
-    if (yPos > 250) { doc.addPage(); yPos = 25; }
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(75, 85, 99);
+      
+      cv.formations.forEach((formation) => {
+        if (yPos > 260) { doc.addPage(); yPos = 25; }
+        doc.text("- " + formation, marginX + 5, yPos);
+        yPos += 6;
+      });
+      yPos += 4;
+    }
     
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("LANGUES", marginX, yPos);
+    // Langues
+    if (cv.langues && cv.langues.length > 0) {
+      yPos += 8;
+      if (yPos > 250) { doc.addPage(); yPos = 25; }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129);
+      doc.text("LANGUES", marginX, yPos);
+      
+      yPos += 6;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(75, 85, 99);
+      
+      let ligneLangues = "";
+      cv.langues.forEach((langue, index) => {
+        ligneLangues += langue;
+        if (index < cv.langues.length - 1) ligneLangues += "  |  ";
+      });
+      doc.text(ligneLangues, marginX + 5, yPos);
+      yPos += 8;
+    }
     
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
+    // Centres d'intérêt
+    if (cv.centresInteret && cv.centresInteret.length > 0) {
+      yPos += 8;
+      if (yPos > 250) { doc.addPage(); yPos = 25; }
+      
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129);
+      doc.text("CENTRES D'INTERET", marginX, yPos);
+      
+      yPos += 6;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(75, 85, 99);
+      
+      let ligneCentres = "";
+      cv.centresInteret.forEach((centre, index) => {
+        ligneCentres += centre;
+        if (index < cv.centresInteret.length - 1) ligneCentres += "  |  ";
+      });
+      doc.text(ligneCentres, marginX + 5, yPos);
+      yPos += 8;
+    }
     
-    let ligneLangues = "";
-    cv.langues.forEach((langue, index) => {
-      ligneLangues += langue;
-      if (index < cv.langues.length - 1) ligneLangues += "  |  ";
-    });
-    doc.text(ligneLangues, marginX + 5, yPos);
-    yPos += 8;
-  }
-  
-  // ========== CENTRES D'INTERET ==========
-  if (cv.centresInteret && cv.centresInteret.length > 0) {
-    yPos += 8;
-    if (yPos > 250) { doc.addPage(); yPos = 25; }
+    // Pied de page
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(156, 163, 175);
+    doc.text(
+      `Créé le ${new Date().toLocaleDateString('fr-FR')} via Stag.io`,
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 10,
+      { align: "center" }
+    );
     
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("CENTRES D'INTERET", marginX, yPos);
-    
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
-    
-    let ligneCentres = "";
-    cv.centresInteret.forEach((centre, index) => {
-      ligneCentres += centre;
-      if (index < cv.centresInteret.length - 1) ligneCentres += "  |  ";
-    });
-    doc.text(ligneCentres, marginX + 5, yPos);
-    yPos += 8;
-  }
-  
-  // ========== PIED DE PAGE ==========
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(156, 163, 175);
-  doc.text(
-    `Cree le ${new Date().toLocaleDateString('fr-FR')} via Stag.io`,
-    pageWidth / 2,
-    doc.internal.pageSize.getHeight() - 10,
-    { align: "center" }
-  );
-  
-  // Téléchargement
-  doc.save(`CV_${cv.nom}_${cv.prenom}.pdf`);
-  showNotification('success', "✅ CV PDF télécharge!");
-}, [getCurrentCv, showNotification]);
+    doc.save(`CV_${cv.nom}_${cv.prenom}.pdf`);
+    showNotification('success', "✅ CV PDF téléchargé");
+  }, [getCurrentCv, showNotification]);
 
   // ============================================
   // 11. GESTION DU PROFIL
@@ -827,13 +834,11 @@ const handleDownloadCV = useCallback(() => {
     );
   }
 
- 
-
   // ============================================
   // 15. RENDU PRINCIPAL
   // ============================================
   return (
-    <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
+    <div className="flex min-h-screen fade-in font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
       
       {/* NOTIFICATION */}
       {notification.show && (
@@ -993,25 +998,61 @@ const handleDownloadCV = useCallback(() => {
       {/* SIDEBAR */}
       <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
         <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center"><TrendingUp size={20} className="text-white" /></div>
-            <div><h1 className="text-xl font-bold text-white">Stag.io</h1><p className="text-emerald-400 text-xs">Plateforme de stages</p></div>
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg ring-2 ring-white/10">
+              <span className="text-xl font-bold text-white">
+                {((formData.prenom || etudiant.prenom)?.charAt(0) || '')}{((formData.nom || etudiant.nom)?.charAt(0) || 'É')}
+              </span>
+            </div>
           </div>
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: '#374151' }}>
-            <p className="text-sm font-medium text-white">{formData.nom || etudiant.nom} {formData.prenom || etudiant.prenom}</p>
-            <p className="text-emerald-400 text-xs">{formData.filiere || etudiant.filiere}</p>
+          
+          <div className="text-center">
+            <p className="text-sm font-semibold text-white">
+              {(formData.prenom || etudiant.prenom)} {(formData.nom || etudiant.nom)}
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
+              <p className="text-emerald-400 text-xs font-medium">{formData.filiere || etudiant.filiere}</p>
+              <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
+            </div>
           </div>
         </div>
-        <nav className="p-4">
+        
+        <nav className="p-4 space-y-1">
           {menuItems.map(item => (
-            <button key={item.id} onClick={() => setActiveMenu(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all ${activeMenu === item.id ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"}`}>
-              {item.icon}<span className="text-sm font-medium">{item.label}</span>
+            <button 
+              key={item.id} 
+              onClick={() => setActiveMenu(item.id)} 
+              className={`
+                w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
+                ${activeMenu === item.id 
+                  ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                }
+              `}
+            >
+              <div className={`transition-transform duration-200 group-hover:scale-105 ${activeMenu === item.id ? "text-emerald-400" : ""}`}>
+                {item.icon}
+              </div>
+              <span className="text-sm font-medium">{item.label}</span>
+              {activeMenu === item.id && (
+                <div className="ml-auto w-1 h-4 bg-emerald-400 rounded-full"></div>
+              )}
             </button>
           ))}
-          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mt-3 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all"><LogOut size={18} /><span className="text-sm font-medium">Déconnexion</span></button>
+          
+          <div className="h-px bg-gray-700 my-3"></div>
+          
+          <button 
+            onClick={onLogout} 
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 group"
+          >
+            <LogOut size={18} className="group-hover:scale-105 transition-transform" />
+            <span className="text-sm font-medium">Déconnexion</span>
+          </button>
         </nav>
       </div>
-
+      
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
@@ -1024,7 +1065,7 @@ const handleDownloadCV = useCallback(() => {
 
         <div className="flex-1 overflow-y-auto p-6">
           
-          {/* ==================== MON PROFIL ==================== */}
+          {/* MON PROFIL */}
           {activeMenu === "profil" && (
             <div className="max-w-5xl mx-auto space-y-6">
               <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: theme.card }}>
@@ -1065,7 +1106,7 @@ const handleDownloadCV = useCallback(() => {
                   ))}
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Compétences (séparées par des virgules)</label>
-                    {isEditing ? <input type="text" name="competences" value={formData.competences} onChange={handleInputChange} placeholder="React, Python, JavaScript" className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <div className="flex flex-wrap gap-2 p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>{(formData.competences || etudiant.competences?.join(", ") || "").split(",").map((s, i) => s.trim() && <span key={i} className="px-2 py-1 rounded-full text-sm" style={{ backgroundColor: theme.card, color: theme.text }}>{s.trim()}</span>)}</div>}
+                    {isEditing ? <input type="text" name="competences" value={formData.competences} onChange={handleInputChange} placeholder="React, Python, JavaScript" className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <div className="flex flex-wrap gap-2 p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>{(formData.competences || "").split(",").map((s, i) => s.trim() && <span key={i} className="px-2 py-1 rounded-full text-sm" style={{ backgroundColor: theme.card, color: theme.text }}>{s.trim()}</span>)}</div>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Bio</label>
@@ -1094,7 +1135,6 @@ const handleDownloadCV = useCallback(() => {
                     <div><span className="text-gray-500">Adresse:</span> <span style={{ color: theme.text }}>{getCurrentCv().adresse || "Non renseignée"}</span></div>
                     <div><span className="text-gray-500">Université:</span> <span style={{ color: theme.text }}>{getCurrentCv().universite || "Non renseignée"}</span></div>
                     <div><span className="text-gray-500">Filière:</span> <span style={{ color: theme.text }}>{getCurrentCv().filiere || "Non renseignée"}</span></div>
-                    <div className="md:col-span-2"><span className="text-gray-500">Compétences:</span> <div className="flex flex-wrap gap-1 mt-1">{getCurrentCv().competences.map((s, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: theme.card, color: theme.text }}>{s}</span>)}</div></div>
                   </div>
                 </div>
 
@@ -1103,19 +1143,17 @@ const handleDownloadCV = useCallback(() => {
                   <div className="border-t pt-4 mt-2" style={{ borderColor: theme.border }}>
                     <h4 className="font-medium mb-3 flex items-center gap-2" style={{ color: theme.text }}><Edit size={16} className="text-emerald-500" /> Informations complémentaires</h4>
                     
-                    {/* Liste des Expériences */}
-                   <ListSection 
-  title="Expérience professionnelle"
-  items={experiences}
-  onAdd={addExperience}
-  onRemove={removeExperience}
-  newValue={newExperience}
-  setNewValue={setNewExperience}
-  placeholder="Ex: Stage chez ABC, 2023 - 2024"
-  darkMode={darkMode}
-/>
+                    <ListSection 
+                      title="Expérience professionnelle"
+                      items={experiences}
+                      onAdd={addExperience}
+                      onRemove={removeExperience}
+                      newValue={newExperience}
+                      setNewValue={setNewExperience}
+                      placeholder="Ex: Stage chez ABC, 2023 - 2024"
+                      darkMode={darkMode}
+                    />
                     
-                    {/* Liste des Formations */}
                     <ListSection
                       title="Formation complémentaire"
                       items={formations}
@@ -1127,7 +1165,6 @@ const handleDownloadCV = useCallback(() => {
                       darkMode={darkMode}
                     />
                     
-                    {/* Liste des Langues */}
                     <ListSection
                       title="Langues"
                       items={langues}
@@ -1139,7 +1176,6 @@ const handleDownloadCV = useCallback(() => {
                       darkMode={darkMode}
                     />
                     
-                    {/* Liste des Centres d'intérêt */}
                     <ListSection
                       title="Centres d'intérêt"
                       items={centresInteret}
@@ -1172,7 +1208,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== LISTE DES OFFRES ==================== */}
+          {/* LISTE DES OFFRES */}
           {activeMenu === "offres" && (
             <div className="space-y-5">
               <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
@@ -1279,7 +1315,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
           
-          {/* ==================== MES CANDIDATURES ==================== */}
+          {/* MES CANDIDATURES */}
           {activeMenu === "mesCandidatures" && (
             <div className="space-y-3">
               {mesCandidatures.length > 0 ? mesCandidatures.map(c => (
@@ -1298,7 +1334,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== MES STAGES ==================== */}
+          {/* MES STAGES */}
           {activeMenu === "mesStages" && (
             <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
               <Calendar size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
@@ -1306,7 +1342,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== MES FAVORIS ==================== */}
+          {/* MES FAVORIS */}
           {activeMenu === "favoris" && (
             <div className="space-y-3">
               {offresFavoris.length > 0 ? offresFavoris.map(offre => (
@@ -1327,7 +1363,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== MES ÉVALUATIONS ==================== */}
+          {/* MES ÉVALUATIONS */}
           {activeMenu === "evaluations" && (
             <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
               <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
@@ -1335,7 +1371,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== CHANGER MOT DE PASSE ==================== */}
+          {/* CHANGER MOT DE PASSE */}
           {activeMenu === "changePassword" && (
             <div className="max-w-md mx-auto">
               <div className="rounded-2xl shadow-sm p-8" style={{ backgroundColor: theme.card }}>
@@ -1354,7 +1390,7 @@ const handleDownloadCV = useCallback(() => {
             </div>
           )}
 
-          {/* ==================== CONDITIONS & AIDE ==================== */}
+          {/* CONDITIONS & AIDE */}
           {activeMenu === "aide" && (
             <div className="rounded-2xl shadow-sm p-6 max-w-3xl mx-auto" style={{ backgroundColor: theme.card }}>
               <h3 className="font-bold text-xl mb-5" style={{ color: theme.text }}>📚 Centre d'aide</h3>

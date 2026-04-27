@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Star, User, Briefcase, ShieldCheck, CheckCircle, Mail, Phone, MapPin, Award, TrendingUp } from "lucide-react";
 
+
+
 export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage, darkMode }) {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
@@ -38,7 +40,8 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage, darkMod
   };
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
+    <div className= {darkMode ? 'dark' : ''}>
+      
       {/* Hero Section avec overlay adapté */}
       <div className="relative overflow-hidden py-20 px-4">
         <div className="absolute inset-0">
@@ -288,6 +291,7 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage, darkMod
           </div>
         </div>
       </footer>
+    
     </div>
   );
 }

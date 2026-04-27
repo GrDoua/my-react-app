@@ -318,7 +318,7 @@ export function DashboardEntreprise({
   }
 
   return (
-    <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
+    <div className="flex min-h-screen fade-in font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
 
       {/* NOTIFICATION */}
       {notification.show && (
@@ -616,29 +616,64 @@ export function DashboardEntreprise({
         </div>
       )}
 
-      {/* SIDEBAR */}
-      <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
-        <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl font-bold text-white">
-              {logoPreview ? <img src={logoPreview} className="w-10 h-10 rounded-xl object-cover" alt="logo" /> : <TrendingUp size={20} />}
-            </div>
-            <div><h1 className="text-xl font-bold text-white">Stag.io</h1><p className="text-emerald-400 text-xs">Espace Entreprise</p></div>
-          </div>
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: '#374151' }}>
-            <p className="text-sm font-medium text-white">{entrepriseProfil.nom}</p>
-            <p className="text-emerald-400 text-xs">{entrepriseProfil.secteur || "Entreprise"}</p>
-          </div>
-        </div>
-        <nav className="p-4">
-          {menuItems.map(item => (
-            <button key={item.id} onClick={() => setActiveMenu(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all ${activeMenu === item.id ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"}`}>
-              {item.icon}<span className="text-sm font-medium">{item.label}</span>
-            </button>
-          ))}
-          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mt-3 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all"><LogOut size={18} /><span className="text-sm font-medium">Déconnexion</span></button>
-        </nav>
+ {/* SIDEBAR */}
+<div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
+  <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
+    {/* Logo */}
+    <div className="flex items-center justify-center mb-4">
+      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
+        <Building size={30} className="text-white" />
       </div>
+    </div>
+    
+    <div className="text-center">
+      <h3 className="text-white font-semibold text-base">
+        {entrepriseProfil.nom || "Entreprise"}
+      </h3>
+      <div className="flex items-center justify-center gap-2 mt-1.5">
+        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+        <p className="text-emerald-400 text-xs font-medium">
+          {entrepriseProfil.secteur || "Entreprise"}
+        </p>
+        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+      </div>
+    </div>
+  </div>
+  
+  <nav className="p-4 space-y-1">
+    {menuItems.map(item => (
+      <button 
+        key={item.id} 
+        onClick={() => setActiveMenu(item.id)} 
+        className={`
+          w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
+          ${activeMenu === item.id 
+            ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+          }
+        `}
+      >
+        <div className={`transition-transform duration-200 group-hover:scale-105 ${activeMenu === item.id ? "text-emerald-400" : ""}`}>
+          {item.icon}
+        </div>
+        <span className="text-sm font-medium">{item.label}</span>
+        {activeMenu === item.id && (
+          <div className="ml-auto w-1 h-4 bg-emerald-400 rounded-full"></div>
+        )}
+      </button>
+    ))}
+    
+    <div className="h-px bg-gray-700 my-3"></div>
+    
+    <button 
+      onClick={onLogout} 
+      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 group"
+    >
+      <LogOut size={18} className="group-hover:scale-105 transition-transform" />
+      <span className="text-sm font-medium">Déconnexion</span>
+    </button>
+  </nav>
+</div>
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">

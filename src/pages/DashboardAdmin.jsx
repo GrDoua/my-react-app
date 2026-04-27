@@ -256,7 +256,7 @@ export function DashboardAdmin({
   };
 
   return (
-    <div className="flex min-h-screen font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
+    <div className="flex min-h-screen fade-in font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
 
       {/* NOTIFICATION */}
       {notification.show && (
@@ -346,28 +346,54 @@ export function DashboardAdmin({
       )}
 
       {/* SIDEBAR */}
-      <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
-        <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-xl font-bold text-white">
-              {logoPreview ? <img src={logoPreview} className="w-10 h-10 rounded-xl object-cover" alt="logo" /> : <TrendingUp size={20} />}
-            </div>
-            <div><h1 className="text-xl font-bold text-white">Stag.io</h1><p className="text-emerald-400 text-xs">Espace Admin</p></div>
-          </div>
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: '#374151' }}>
-            <p className="text-sm font-medium text-white">{chefProfil.nom}</p>
-            <p className="text-emerald-400 text-xs">{chefProfil.titre}</p>
-          </div>
-        </div>
-        <nav className="p-4">
-          {menuItems.map(item => (
-            <button key={item.id} onClick={() => setActiveMenu(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl mb-1 transition-all ${activeMenu === item.id ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"}`}>
-              {item.icon}<span className="text-sm font-medium">{item.label}</span>
-            </button>
-          ))}
-          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mt-3 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all"><LogOut size={18} /><span className="text-sm font-medium">Déconnexion</span></button>
-        </nav>
+   <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
+  <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+    {/* Avatar ou icône par défaut */}
+    <div className="flex justify-center mb-4">
+      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-md">
+        <span className="text-2xl font-bold text-white">
+          {chefProfil.nom?.charAt(0) || '👨'}
+        </span>
       </div>
+    </div>
+    
+    <div className="text-center">
+      <p className="text-xl font-bold text-white tracking-tight">{chefProfil.nom}</p>
+      <p className="text-emerald-400 text-xs font-medium mt-1">{chefProfil.titre}</p>
+    </div>
+  </div>
+  
+  <nav className="p-4">
+    {menuItems.map(item => (
+      <button 
+        key={item.id} 
+        onClick={() => setActiveMenu(item.id)} 
+        className={`
+          w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-all duration-200
+          ${activeMenu === item.id 
+            ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+          }
+        `}
+      >
+        <div className={`${activeMenu === item.id ? "text-emerald-400" : ""}`}>
+          {item.icon}
+        </div>
+        <span className="text-sm font-medium">{item.label}</span>
+      </button>
+    ))}
+    
+    <div className="h-px bg-gray-700 my-3"></div>
+    
+    <button 
+      onClick={onLogout} 
+      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200"
+    >
+      <LogOut size={18} />
+      <span className="text-sm font-medium">Déconnexion</span>
+    </button>
+  </nav>
+</div>
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">

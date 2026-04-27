@@ -29,7 +29,7 @@ export function PageOffres({ onPostulerClick, setPage, darkMode }) {
   
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen fade-in ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10">
