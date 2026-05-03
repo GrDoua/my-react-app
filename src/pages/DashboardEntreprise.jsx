@@ -5,10 +5,29 @@ import {
   FileText, Upload, Download, FilePlus, Eye, Phone, MapPin, Mail, Search,
   Award, AlertCircle, Check, XCircle, HelpCircle,
   MessageCircle, BookOpen, ExternalLink, DollarSign, Star, Camera, Globe,
-   Tag
+  Tag,PieChart
 } from "lucide-react";
 import { api } from '../api';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+// Listes pour les selects
+const typesStage = [
+  "Stage PFE",
+  "Stage d'été",
+  "Stage ouvrier",
+  "Stage d'initiation",
+  "Stage professionnel",
+  "Stage de perfectionnement"
+];
+
+const wilayas = [
+  "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", 
+  "Blida", "Bouira", "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", 
+  "Djelfa", "Jijel", "Sétif", "Saïda", "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", 
+  "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara", "Ouargla", "Oran", "El Bayadh", 
+  "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt", "El Oued", 
+  "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", 
+  "Ghardaïa", "Relizane"
+];
 
 // ============================================
 // COMPOSANT DASHBOARD ENTREPRISE
@@ -43,25 +62,11 @@ export function DashboardEntreprise({
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatut, setFilterStatut] = useState("Tous");
   const [loading, setLoading] = useState(true);
-  // DashboardEntreprise.jsx - Zid had les states
-const [showEditModal, setShowEditModal] = useState(false);
-const [editingOffer, setEditingOffer] = useState(null);
-const [editForm, setEditForm] = useState({
-  titre: '',
-  description: '',
-  lieu: '',
-  type: 'Stage',
-  duree: '',
-  salaire: '',
-  competences: [],
-  dateDebut: '',
-  dateFin: '',
-  niveauRequis: 'Débutant',
-  nombrePlaces: 1,
-  horaires: 'Temps plein',
-  avantages: []
-});
-const [editCompetenceInput, setEditCompetenceInput] = useState('');
+  
+  // États pour modification offre
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingOffer, setEditingOffer] = useState(null);
+  const [editCompetenceInput, setEditCompetenceInput] = useState('');
   
   // Données API
   const [mesOffres, setMesOffres] = useState([]);
@@ -105,7 +110,8 @@ const [editCompetenceInput, setEditCompetenceInput] = useState('');
   // États pour nouvelle offre
   const [newOffre, setNewOffre] = useState({ 
     titre: "", 
-    lieu: "Alger", 
+    lieu: "", 
+    wilaya: "",
     duree: "6 mois", 
     type: "Stage PFE", 
     salaire: "", 
@@ -119,15 +125,33 @@ const [editCompetenceInput, setEditCompetenceInput] = useState('');
   });
   const [competenceInput, setCompetenceInput] = useState("");
 
-  
+  // État pour le formulaire de modification
+  const [editForm, setEditForm] = useState({
+    titre: '',
+    description: '',
+    lieu: '',
+    wilaya: '',
+    type: 'Stage PFE',
+    duree: '',
+    salaire: '',
+    competences: [],
+    dateDebut: '',
+    dateFin: '',
+    niveauRequis: 'Débutant',
+    nombrePlaces: 1,
+    horaires: 'Temps plein',
+    avantages: []
+  });
+
   // ============================================
   // CHARGEMENT DES DONNÉES DEPUIS L'API
   // ============================================
 
- const showNotification = useCallback((type, message) => {
+  const showNotification = useCallback((type, message) => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
   }, []);
+  
   // Helper function to check token
   const checkToken = useCallback(() => {
     const t = localStorage.getItem('token');
@@ -137,7 +161,7 @@ const [editCompetenceInput, setEditCompetenceInput] = useState('');
       return false;
     }
     return true;
-  }, [onLogout]);
+  }, [onLogout, showNotification]);
 
   const fetchCompanyOffers = useCallback(async () => {
     const currentToken = localStorage.getItem('token');
@@ -197,59 +221,56 @@ const [editCompetenceInput, setEditCompetenceInput] = useState('');
       setLoading(false);
     }
   }, [onLogout, showNotification]);
-  // Ajoute cette fonction après fetchCompanyApplications
-const fetchCompanyProfile = useCallback(async () => {
-  const currentToken = localStorage.getItem('token');
-  if (!currentToken) return;
-  
-  try {
-    console.log("📡 Appel API: getCompanyProfile");
-    const response = await api.getCompanyProfile(currentToken);
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      console.log("✅ Profil chargé:", data.company);
-      
-      // Mettre à jour les informations du profil
-      setEntrepriseProfil({
-        nom: data.company.nom || "",
-        email: data.company.email || "",
-        secteur: data.company.secteur || "",
-        description: data.company.description || "",
-        telephone: data.company.telephone || "",
-        adresse: data.company.adresse || "",
-        siteWeb: data.company.siteWeb || "",
-        nbEmployes: data.company.nbEmployes || ""
-      });
-      
-      // Charger le logo
-      if (data.company.logoPath) {
-        const logoUrl = `http://localhost:5004/uploads/companyLogos/${data.company.logoPath}`;
-        setLogoPreview(logoUrl);
-        console.log("✅ Logo chargé:", logoUrl);
-      } else {
-        setLogoPreview(null);
-      }
-    }
-  } catch (error) {
-    console.error('❌ Erreur chargement profil:', error);
-  }
-}, []);
 
- useEffect(() => {
-  const currentToken = localStorage.getItem('token');
-  if (!currentToken) {
-    console.error("❌ Aucun token trouvé!");
-    showNotification('error', "Veuillez vous reconnecter");
-    setTimeout(() => onLogout(), 2000);
-    return;
-  }
-  
-  console.log("✅ Token trouvé:", currentToken.substring(0, 20) + "...");
-  fetchCompanyOffers();
-  fetchCompanyApplications();
-  fetchCompanyProfile();  // ← AJOUTE CETTE LIGNE
-}, []);
+  const fetchCompanyProfile = useCallback(async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) return;
+    
+    try {
+      console.log("📡 Appel API: getCompanyProfile");
+      const response = await api.getCompanyProfile(currentToken);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        console.log("✅ Profil chargé:", data.company);
+        
+        setEntrepriseProfil({
+          nom: data.company.nom || "",
+          email: data.company.email || "",
+          secteur: data.company.secteur || "",
+          description: data.company.description || "",
+          telephone: data.company.telephone || "",
+          adresse: data.company.adresse || "",
+          siteWeb: data.company.siteWeb || "",
+          nbEmployes: data.company.nbEmployes || ""
+        });
+        
+        if (data.company.logoPath) {
+          const logoUrl = `http://localhost:5004/uploads/companyLogos/${data.company.logoPath}`;
+          setLogoPreview(logoUrl);
+        } else {
+          setLogoPreview(null);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement profil:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      console.error("❌ Aucun token trouvé!");
+      showNotification('error', "Veuillez vous reconnecter");
+      setTimeout(() => onLogout(), 2000);
+      return;
+    }
+    
+    console.log("✅ Token trouvé:", currentToken.substring(0, 20) + "...");
+    fetchCompanyOffers();
+    fetchCompanyApplications();
+    fetchCompanyProfile();
+  }, []);
 
   // ============================================
   // DONNÉES CALCULÉES
@@ -286,146 +307,25 @@ const fetchCompanyProfile = useCallback(async () => {
   }, [mesCandidatures]);
 
   // ============================================
-  // FONCTIONS
+  // FONCTIONS CRUD OFFRES
   // ============================================
- 
 
-// Fonction pour ouvrir modal de modification
-const handleEditOffer = (offer) => {
-  setEditingOffer(offer);
-  setEditForm({
-    titre: offer.titre || '',
-    description: offer.description || '',
-    lieu: offer.lieu || '',
-    type: offer.type || 'Stage',
-    duree: offer.duree || '',
-    salaire: offer.salaire || '',
-    competences: offer.competences || [],
-    dateDebut: offer.dateDebut ? offer.dateDebut.split('T')[0] : '',
-    dateFin: offer.dateFin ? offer.dateFin.split('T')[0] : '',
-    niveauRequis: offer.niveauRequis || 'Débutant',
-    nombrePlaces: offer.nombrePlaces || 1,
-    horaires: offer.horaires || 'Temps plein',
-    avantages: offer.avantages || []
-  });
-  setEditCompetenceInput((offer.competences || []).join(', '));
-  setShowEditModal(true);
-};
-
-// Fonction pour sauvegarder modification
-const handleSaveEdit = useCallback(async () => {
-  if (!checkToken()) return;
-  
-  try {
-    const offreData = {
-      titre: editForm.titre,
-      description: editForm.description,
-      lieu: editForm.lieu,
-      type: editForm.type,
-      duree: editForm.duree,
-      salaire: editForm.salaire || "Non spécifié",
-      competences: editCompetenceInput.split(",").map(c => c.trim()).filter(c => c),
-      dateDebut: editForm.dateDebut,
-      dateFin: editForm.dateFin,
-      niveauRequis: editForm.niveauRequis,
-      nombrePlaces: parseInt(editForm.nombrePlaces) || 1,
-      horaires: editForm.horaires,
-      avantages: editForm.avantages
-    };
-    
-    const response = await api.updateOffer(token, editingOffer.id, offreData);
-    const data = await response.json();
-    
-    if (response.ok) {
-      showNotification('success', "✅ Offre modifiée avec succès");
-      setShowEditModal(false);
-      fetchCompanyOffers();
-    } else {
-      showNotification('error', data.message || "❌ Erreur lors de la modification");
-    }
-  } catch (error) {
-    console.error('Erreur modification:', error);
-    showNotification('error', "❌ Erreur de connexion");
-  }
-}, [editForm, editCompetenceInput, editingOffer, token, showNotification, checkToken, fetchCompanyOffers]);
-  const handleInputChange = useCallback((e) => {
-    setEntrepriseProfil(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  }, []);
-
- const handleSaveProfil = useCallback(async () => {
-  if (!checkToken()) return;
-  
-  try {
-    const response = await api.updateCompanyProfile(token, entrepriseProfil);
-    const data = await response.json();
-    
-    if (response.ok) {
-      showNotification('success', "✅ Profil mis à jour avec succès");
-      setIsEditing(false);
-      fetchCompanyProfile(); // ← AJOUTE CETTE LIGNE pour recharger
-    } else {
-      showNotification('error', data.message || "Erreur lors de la mise à jour");
-    }
-  } catch (error) {
-    console.error(error);
-    showNotification('error', "❌ Erreur de connexion");
-  }
-}, [entrepriseProfil, token, showNotification, checkToken, fetchCompanyProfile]);
-
- const handleLogoUpload = useCallback(async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  if (!file.type.startsWith('image/')) {
-    showNotification('error', "❌ Veuillez sélectionner une image");
-    return;
-  }
-  
-  if (file.size > 5 * 1024 * 1024) {
-    showNotification('error', "❌ Image trop volumineuse (max 5MB)");
-    return;
-  }
-  
-  try {
-    const formData = new FormData();
-    formData.append('logo', file);
-    
-    const response = await fetch('http://localhost:5004/api/companies/upload-logo', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      },
-      body: formData
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok) {
-      showNotification('success', "✅ Logo mis à jour avec succès");
-      // Recharger le profil pour avoir le nouveau logoPath
-      await fetchCompanyProfile();
-    } else {
-      showNotification('error', data.message || "❌ Erreur lors de l'upload");
-    }
-  } catch (error) {
-    console.error('Erreur upload:', error);
-    showNotification('error', "❌ Erreur de connexion");
-  }
-}, [token, showNotification, fetchCompanyProfile]);
-  // Créer une offre via API
+  // Fonction pour publier une offre
   const handleAddOffre = useCallback(async () => {
     if (!checkToken()) return;
     
-    if (!newOffre.titre || !newOffre.description) {
-      showNotification('error', "❌ Veuillez remplir tous les champs obligatoires");
+    if (!newOffre.titre || !newOffre.description || !newOffre.lieu || !newOffre.wilaya) {
+      showNotification('error', "❌ Veuillez remplir tous les champs obligatoires (titre, description, lieu, wilaya)");
       return;
     }
     
     try {
+      const currentToken = localStorage.getItem('token');
       const offreData = {
         titre: newOffre.titre,
         description: newOffre.description,
         lieu: newOffre.lieu,
+        wilaya: newOffre.wilaya,
         type: newOffre.type,
         duree: newOffre.duree,
         salaire: newOffre.salaire || "Non spécifié",
@@ -434,20 +334,20 @@ const handleSaveEdit = useCallback(async () => {
         dateFin: newOffre.dateFin,
         niveauRequis: newOffre.niveauRequis,
         nombrePlaces: parseInt(newOffre.nombrePlaces) || 1,
-        horaires: newOffre.horaires || "Temps plein",
+        horaires: newOffre.horaires,
         avantages: newOffre.avantages ? newOffre.avantages.split(",").map(a => a.trim()) : []
       };
       
       console.log("📤 Envoi des données:", offreData);
       
-      const response = await api.createOffer(token, offreData);
+      const response = await api.createOffer(currentToken, offreData);
       const data = await response.json();
       
       if (response.ok) {
         showNotification('success', "✅ Offre publiée avec succès");
         setShowAddModal(false);
         setNewOffre({ 
-          titre: "", lieu: "Alger", duree: "6 mois", type: "Stage PFE", 
+          titre: "", lieu: "", wilaya: "", duree: "6 mois", type: "Stage PFE", 
           salaire: "", description: "", dateCreation: "", dateFin: "",
           niveauRequis: "Débutant", nombrePlaces: 1, horaires: "Temps plein", avantages: ""
         });
@@ -460,15 +360,84 @@ const handleSaveEdit = useCallback(async () => {
       console.error('Erreur création offre:', error);
       showNotification('error', "❌ Erreur de connexion");
     }
-  }, [newOffre, competenceInput, token, showNotification, checkToken, fetchCompanyOffers]);
+  }, [newOffre, competenceInput, showNotification, checkToken, fetchCompanyOffers]);
 
-  // Supprimer une offre via API
+  // Fonction pour ouvrir modal de modification
+  const handleEditOffer = (offer) => {
+    setEditingOffer(offer);
+    setEditForm({
+      titre: offer.titre || '',
+      description: offer.description || '',
+      lieu: offer.lieu || '',
+      wilaya: offer.wilaya || '',
+      type: offer.type || 'Stage PFE',
+      duree: offer.duree || '',
+      salaire: offer.salaire || '',
+      competences: offer.competences || [],
+      dateDebut: offer.dateDebut ? offer.dateDebut.split('T')[0] : '',
+      dateFin: offer.dateFin ? offer.dateFin.split('T')[0] : '',
+      niveauRequis: offer.niveauRequis || 'Débutant',
+      nombrePlaces: offer.nombrePlaces || 1,
+      horaires: offer.horaires || 'Temps plein',
+      avantages: offer.avantages || []
+    });
+    setEditCompetenceInput((offer.competences || []).join(', '));
+    setShowEditModal(true);
+  };
+
+  // Fonction pour sauvegarder modification
+  const handleSaveEdit = useCallback(async () => {
+    if (!checkToken()) return;
+    
+    if (!editForm.titre || !editForm.description || !editForm.lieu || !editForm.wilaya) {
+      showNotification('error', "❌ Veuillez remplir tous les champs obligatoires");
+      return;
+    }
+    
+    try {
+      const currentToken = localStorage.getItem('token');
+      const offreData = {
+        titre: editForm.titre,
+        description: editForm.description,
+        lieu: editForm.lieu,
+        wilaya: editForm.wilaya,
+        type: editForm.type,
+        duree: editForm.duree,
+        salaire: editForm.salaire || "Non spécifié",
+        competences: editCompetenceInput.split(",").map(c => c.trim()).filter(c => c),
+        dateDebut: editForm.dateDebut,
+        dateFin: editForm.dateFin,
+        niveauRequis: editForm.niveauRequis,
+        nombrePlaces: parseInt(editForm.nombrePlaces) || 1,
+        horaires: editForm.horaires,
+        avantages: editForm.avantages
+      };
+      
+      const response = await api.updateOffer(currentToken, editingOffer.id, offreData);
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Offre modifiée avec succès");
+        setShowEditModal(false);
+        setEditingOffer(null);
+        fetchCompanyOffers();
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors de la modification");
+      }
+    } catch (error) {
+      console.error('Erreur modification:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [editForm, editCompetenceInput, editingOffer, showNotification, checkToken, fetchCompanyOffers]);
+
+  // Supprimer une offre
   const handleSupprimerOffre = useCallback(async (offreId) => {
     if (!checkToken()) return;
     if (!confirm("Voulez-vous vraiment supprimer cette offre ?")) return;
     
     try {
-      const response = await api.deleteOffer(token, offreId);
+      const currentToken = localStorage.getItem('token');
+      const response = await api.deleteOffer(currentToken, offreId);
       const data = await response.json();
       
       if (response.ok) {
@@ -482,6 +451,74 @@ const handleSaveEdit = useCallback(async () => {
       showNotification('error', "❌ Erreur de connexion");
     }
   }, [token, showNotification, checkToken, fetchCompanyOffers]);
+
+  // ============================================
+  // AUTRES FONCTIONS
+  // ============================================
+
+  const handleInputChange = useCallback((e) => {
+    setEntrepriseProfil(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
+
+  const handleSaveProfil = useCallback(async () => {
+    if (!checkToken()) return;
+    
+    try {
+      const response = await api.updateCompanyProfile(token, entrepriseProfil);
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Profil mis à jour avec succès");
+        setIsEditing(false);
+        fetchCompanyProfile();
+      } else {
+        showNotification('error', data.message || "Erreur lors de la mise à jour");
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [entrepriseProfil, token, showNotification, checkToken, fetchCompanyProfile]);
+
+  const handleLogoUpload = useCallback(async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', "❌ Veuillez sélectionner une image");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('error', "❌ Image trop volumineuse (max 5MB)");
+      return;
+    }
+    
+    try {
+      const formData = new FormData();
+      formData.append('logo', file);
+      
+      const response = await fetch('http://localhost:5004/api/companies/upload-logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Logo mis à jour avec succès");
+        await fetchCompanyProfile();
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors de l'upload");
+      }
+    } catch (error) {
+      console.error('Erreur upload:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, showNotification, fetchCompanyProfile]);
 
   const handleViewCV = useCallback((candidature) => {
     setSelectedCandidature(candidature);
@@ -528,78 +565,64 @@ const handleSaveEdit = useCallback(async () => {
     }
   }, [token, showNotification, checkToken, fetchCompanyApplications]);
 
- // Dans DashboardEntreprise.jsx - CORRECTION COMPLÈTE
-const handleSaveEvaluation = useCallback(async () => {
-  if (!checkToken()) return;
-  
-  if (!selectedStagiaire) {
-    showNotification('error', "❌ Aucun stagiaire sélectionné");
-    return;
-  }
-  
-  // Récupérer l'ID étudiant depuis la candidature
-  const studentId = selectedStagiaire.studentId || selectedStagiaire.etudiantId;
-  
-  if (!studentId) {
-    showNotification('error', "❌ Impossible d'identifier l'étudiant");
-    console.error("Student ID manquant dans:", selectedStagiaire);
-    return;
-  }
-  
-  // Structure complète des données d'évaluation
-  const evaluationData = {
-    studentId: studentId,
-    candidatureId: selectedStagiaire.id,
-    offreTitre: selectedStagiaire.offreTitre || selectedStagiaire.titre,
-    entrepriseNom: entrepriseProfil.nom || "Entreprise",
-    ponctualite: parseInt(evaluation.ponctualite) || 0,
-    qualiteTravail: parseInt(evaluation.qualiteTravail) || 0,
-    autonomie: parseInt(evaluation.autonomie) || 0,
-    espritEquipe: parseInt(evaluation.espritEquipe) || 0,
-    note: parseInt(evaluation.note) || 0,
-    commentaire: evaluation.commentaire || "",
-    progression: evaluation.progression || "moyenne",
-    dateEvaluation: new Date().toISOString()
-  };
-  
-  console.log("📤 Envoi évaluation:", evaluationData);
-  console.log("📤 Student ID:", studentId);
-  console.log("📤 Candidature ID:", selectedStagiaire.id);
-  
-  try {
-    const response = await api.saveEvaluation(token, selectedStagiaire.id, evaluationData);
-    const data = await response.json();
+  const handleSaveEvaluation = useCallback(async () => {
+    if (!checkToken()) return;
     
-    console.log("📥 Réponse API:", response.status, data);
-    
-    if (response.ok) {
-      // Mettre à jour l'état local
-      setMesCandidatures(prev => 
-        prev.map(c => 
-          c.id === selectedStagiaire.id 
-            ? { 
-                ...c, 
-                evaluation: evaluationData,
-                hasEvaluation: true,
-                evaluatedAt: new Date().toISOString()
-              } 
-            : c
-        )
-      );
-      
-      showNotification('success', `✅ Évaluation de ${selectedStagiaire.etudiantNom} enregistrée avec succès`);
-      setShowEvaluationModal(false);
-      
-      // Recharger toutes les candidatures pour être à jour
-      await fetchCompanyApplications();
-    } else {
-      showNotification('error', data.message || data.error || "❌ Erreur lors de l'enregistrement");
+    if (!selectedStagiaire) {
+      showNotification('error', "❌ Aucun stagiaire sélectionné");
+      return;
     }
-  } catch (error) {
-    console.error('❌ Erreur:', error);
-    showNotification('error', "❌ Erreur de connexion au serveur");
-  }
-}, [evaluation, selectedStagiaire, entrepriseProfil.nom, token, showNotification, checkToken, fetchCompanyApplications]);
+    
+    const studentId = selectedStagiaire.studentId || selectedStagiaire.etudiantId;
+    
+    if (!studentId) {
+      showNotification('error', "❌ Impossible d'identifier l'étudiant");
+      console.error("Student ID manquant dans:", selectedStagiaire);
+      return;
+    }
+    
+    const evaluationData = {
+      studentId: studentId,
+      candidatureId: selectedStagiaire.id,
+      offreTitre: selectedStagiaire.offreTitre || selectedStagiaire.titre,
+      entrepriseNom: entrepriseProfil.nom || "Entreprise",
+      ponctualite: parseInt(evaluation.ponctualite) || 0,
+      qualiteTravail: parseInt(evaluation.qualiteTravail) || 0,
+      autonomie: parseInt(evaluation.autonomie) || 0,
+      espritEquipe: parseInt(evaluation.espritEquipe) || 0,
+      note: parseInt(evaluation.note) || 0,
+      commentaire: evaluation.commentaire || "",
+      progression: evaluation.progression || "moyenne",
+      dateEvaluation: new Date().toISOString()
+    };
+    
+    console.log("📤 Envoi évaluation:", evaluationData);
+    
+    try {
+      const response = await api.saveEvaluation(token, selectedStagiaire.id, evaluationData);
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMesCandidatures(prev => 
+          prev.map(c => 
+            c.id === selectedStagiaire.id 
+              ? { ...c, evaluation: evaluationData, hasEvaluation: true, evaluatedAt: new Date().toISOString() } 
+              : c
+          )
+        );
+        
+        showNotification('success', `✅ Évaluation de ${selectedStagiaire.etudiantNom} enregistrée avec succès`);
+        setShowEvaluationModal(false);
+        await fetchCompanyApplications();
+      } else {
+        showNotification('error', data.message || data.error || "❌ Erreur lors de l'enregistrement");
+      }
+    } catch (error) {
+      console.error('❌ Erreur:', error);
+      showNotification('error', "❌ Erreur de connexion au serveur");
+    }
+  }, [evaluation, selectedStagiaire, entrepriseProfil.nom, token, showNotification, checkToken, fetchCompanyApplications]);
+
   const handlePasswordChange = useCallback((e) => {
     setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
@@ -1079,7 +1102,7 @@ const handleSaveEvaluation = useCallback(async () => {
                           </div>
                           <h4 className="font-bold text-lg" style={{ color: theme.text }}>{offre.titre}</h4>
                           <div className="flex flex-wrap gap-4 mt-2 text-sm" style={{ color: theme.textLight }}>
-                            <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu}</span>
+                            <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu} {offre.wilaya ? `(${offre.wilaya})` : ''}</span>
                             <span className="flex items-center gap-1"><Clock size={14} /> {offre.duree}</span>
                             <span className="text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span>
                           </div>
@@ -1095,13 +1118,13 @@ const handleSaveEvaluation = useCallback(async () => {
                           )}
                         </div>
                         <div className="flex gap-2">
-  <button onClick={() => handleEditOffer(offre)} className="text-blue-400 hover:text-blue-600 p-2 transition">
-    <Edit2 size={18} />
-  </button>
-  <button onClick={() => handleSupprimerOffre(offre.id)} className="text-rose-400 hover:text-rose-600 p-2 transition">
-    <Trash2 size={18} />
-  </button>
-</div>
+                          <button onClick={() => handleEditOffer(offre)} className="text-blue-400 hover:text-blue-600 p-2 transition">
+                            <Edit2 size={18} />
+                          </button>
+                          <button onClick={() => handleSupprimerOffre(offre.id)} className="text-rose-400 hover:text-rose-600 p-2 transition">
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1156,7 +1179,9 @@ const handleSaveEvaluation = useCallback(async () => {
                         <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date ? new Date(c.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        
+                        <button onClick={() => handleViewCV(c)} className="px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
+                          <Eye size={14} /> Voir CV
+                        </button>
                         {c.statut === "en_attente" && (
                           <>
                             <button 
@@ -1243,7 +1268,7 @@ const handleSaveEvaluation = useCallback(async () => {
                                       stagiaire.evaluation.autonomie + stagiaire.evaluation.espritEquipe) / 4)}/20
                                   </span>
                                   {stagiaire.evaluation.dateEvaluation && (
-                                    <span className="text-xs text-gray-400">📅 {stagiaire.evaluation.dateEvaluation}</span>
+                                    <span className="text-xs text-gray-400">📅 {new Date(stagiaire.evaluation.dateEvaluation).toLocaleDateString()}</span>
                                   )}
                                 </div>
                               )}
@@ -1321,203 +1346,204 @@ const handleSaveEvaluation = useCallback(async () => {
             </div>
           )}
 
-     {activeMenu === "statistiques" && (
-  <div className="space-y-6">
-    {/* Cartes KPI principales */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Total offres</p>
-        <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p>
-        <p className="text-xs text-emerald-500 mt-2">+{offresActives} actives</p>
-      </div>
-      <div className="rounded-xl p-5 shadow-sm border-l-4 border-blue-400" style={{ backgroundColor: theme.card }}>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Total candidatures</p>
-        <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p>
-        <p className="text-xs text-blue-500 mt-2">{candidaturesEnAttente} en attente</p>
-      </div>
-      <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Taux d'acceptation</p>
-        <p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p>
-        <p className="text-xs text-gray-500 mt-2">{candidaturesAcceptees} acceptés</p>
-      </div>
-      <div className="rounded-xl p-5 shadow-sm border-l-4 border-purple-400" style={{ backgroundColor: theme.card }}>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Délai réponse moyen</p>
-        <p className="text-3xl font-bold text-purple-600">3.5j</p>
-        <p className="text-xs text-gray-500 mt-2">Temps de traitement</p>
-      </div>
-    </div>
-
-{/* Version simple - barres horizontales */}
-<div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-  <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-    <TrendingUp size={18} className="text-emerald-500" />
-    Évolution des candidatures
-  </h3>
-  <div className="space-y-4">
-    {(() => {
-      // Grouper par mois
-      const moisMap = new Map();
-      const moisCourts = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-      
-      mesCandidatures.forEach(c => {
-        const dateValue = c.createdAt || c.date;
-        if (!dateValue) return;
-        
-        const date = new Date(dateValue);
-        if (isNaN(date.getTime())) return;
-        
-        const key = `${moisCourts[date.getMonth()]} ${date.getFullYear()}`;
-        if (!moisMap.has(key)) {
-          moisMap.set(key, { mois: key, total: 0, acceptees: 0 });
-        }
-        const data = moisMap.get(key);
-        data.total++;
-        if (c.statut === 'acceptee') data.acceptees++;
-      });
-      
-      const data = Array.from(moisMap.values()).slice(-6);
-      const maxTotal = Math.max(...data.map(d => d.total), 1);
-      
-      return data.length > 0 ? data.map((item, idx) => (
-        <div key={idx}>
-          <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium" style={{ color: theme.text }}>{item.mois}</span>
-            <div className="flex gap-3">
-              <span className="text-xs text-emerald-600">{item.acceptees} acceptés</span>
-              <span className="text-xs text-gray-500">{item.total} total</span>
-            </div>
-          </div>
-          <div className="flex gap-1 h-8">
-            <div 
-              className="bg-emerald-500 rounded-l-lg flex items-center justify-end px-2 text-white text-xs font-semibold"
-              style={{ width: `${(item.total / maxTotal) * 100}%` }}
-            >
-              {item.total}
-            </div>
-          </div>
-        </div>
-      )) : (
-        <div className="text-center py-8 text-gray-500">
-          Aucune candidature trouvée
-        </div>
-      );
-    })()}
-  </div>
-</div>
-    {/* Top offres */}
-    <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-      <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-        <Award size={18} className="text-yellow-500" />
-        Top offres les plus demandées
-      </h3>
-      <div className="space-y-3">
-        {mesOffres.length > 0 ? (
-          mesOffres.slice(0, 5).map((offre, index) => {
-            const candidaturesCount = mesCandidatures.filter(c => c.offerId === offre.id).length;
-            return (
-              <div key={offre.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
-                  <div>
-                    <p className="font-medium" style={{ color: theme.text }}>{offre.titre}</p>
-                    <p className="text-xs" style={{ color: theme.textLight }}>{offre.type || 'Stage'}</p>
-                  </div>
+          {/* STATISTIQUES */}
+          {activeMenu === "statistiques" && (
+            <div className="space-y-6">
+              {/* Cartes KPI principales */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total offres</p>
+                  <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p>
+                  <p className="text-xs text-emerald-500 mt-2">+{offresActives} actives</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold text-emerald-600">{candidaturesCount}</p>
-                  <p className="text-xs text-gray-500">candidatures</p>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-blue-400" style={{ backgroundColor: theme.card }}>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Total candidatures</p>
+                  <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p>
+                  <p className="text-xs text-blue-500 mt-2">{candidaturesEnAttente} en attente</p>
+                </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Taux d'acceptation</p>
+                  <p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p>
+                  <p className="text-xs text-gray-500 mt-2">{candidaturesAcceptees} acceptés</p>
+                </div>
+                <div className="rounded-xl p-5 shadow-sm border-l-4 border-purple-400" style={{ backgroundColor: theme.card }}>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Délai réponse moyen</p>
+                  <p className="text-3xl font-bold text-purple-600">3.5j</p>
+                  <p className="text-xs text-gray-500 mt-2">Temps de traitement</p>
                 </div>
               </div>
-            );
-          })
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            Aucune offre publiée
-          </div>
-        )}
-      </div>
-    </div>
 
-    {/* Répartition par statut */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-        <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-          <PieChart size={18} className="text-emerald-500" />
-          Répartition des candidatures
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>Acceptés</span>
-              <span className="text-sm font-semibold text-emerald-600">{candidaturesAcceptees}</span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesAcceptees / mesCandidatures.length) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>Refusés</span>
-              <span className="text-sm font-semibold text-rose-600">{candidaturesRefusees}</span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesRefusees / mesCandidatures.length) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>En attente</span>
-              <span className="text-sm font-semibold text-yellow-600">{candidaturesEnAttente}</span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesEnAttente / mesCandidatures.length) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-        </div>
-      </div>
+              {/* Évolution des candidatures */}
+              <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                  <TrendingUp size={18} className="text-emerald-500" />
+                  Évolution des candidatures
+                </h3>
+                <div className="space-y-4">
+                  {(() => {
+                    const moisMap = new Map();
+                    const moisCourts = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+                    
+                    mesCandidatures.forEach(c => {
+                      const dateValue = c.createdAt || c.date;
+                      if (!dateValue) return;
+                      
+                      const date = new Date(dateValue);
+                      if (isNaN(date.getTime())) return;
+                      
+                      const key = `${moisCourts[date.getMonth()]} ${date.getFullYear()}`;
+                      if (!moisMap.has(key)) {
+                        moisMap.set(key, { mois: key, total: 0, acceptees: 0 });
+                      }
+                      const data = moisMap.get(key);
+                      data.total++;
+                      if (c.statut === 'acceptee') data.acceptees++;
+                    });
+                    
+                    const data = Array.from(moisMap.values()).slice(-6);
+                    const maxTotal = Math.max(...data.map(d => d.total), 1);
+                    
+                    return data.length > 0 ? data.map((item, idx) => (
+                      <div key={idx}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm font-medium" style={{ color: theme.text }}>{item.mois}</span>
+                          <div className="flex gap-3">
+                            <span className="text-xs text-emerald-600">{item.acceptees} acceptés</span>
+                            <span className="text-xs text-gray-500">{item.total} total</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 h-8">
+                          <div 
+                            className="bg-emerald-500 rounded-l-lg flex items-center justify-end px-2 text-white text-xs font-semibold"
+                            style={{ width: `${(item.total / maxTotal) * 100}%` }}
+                          >
+                            {item.total}
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-8 text-gray-500">
+                        Aucune candidature trouvée
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
 
-      <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-        <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-          <BarChart3 size={18} className="text-emerald-500" />
-          Performance globale
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>Taux de conversion</span>
-              <span className="text-sm font-semibold text-emerald-600">{tauxAcceptation}%</span>
+              {/* Top offres */}
+              <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                  <Award size={18} className="text-yellow-500" />
+                  Top offres les plus demandées
+                </h3>
+                <div className="space-y-3">
+                  {mesOffres.length > 0 ? (
+                    mesOffres.slice(0, 5).map((offre, index) => {
+                      const candidaturesCount = mesCandidatures.filter(c => c.offerId === offre.id).length;
+                      return (
+                        <div key={offre.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
+                            <div>
+                              <p className="font-medium" style={{ color: theme.text }}>{offre.titre}</p>
+                              <p className="text-xs" style={{ color: theme.textLight }}>{offre.type || 'Stage'}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-emerald-600">{candidaturesCount}</p>
+                            <p className="text-xs text-gray-500">candidatures</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Aucune offre publiée
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Répartition par statut */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <PieChart size={18} className="text-emerald-500" />
+                    Répartition des candidatures
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>Acceptés</span>
+                        <span className="text-sm font-semibold text-emerald-600">{candidaturesAcceptees}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesAcceptees / mesCandidatures.length) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>Refusés</span>
+                        <span className="text-sm font-semibold text-rose-600">{candidaturesRefusees}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesRefusees / mesCandidatures.length) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>En attente</span>
+                        <span className="text-sm font-semibold text-yellow-600">{candidaturesEnAttente}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesEnAttente / mesCandidatures.length) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                  <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                    <BarChart3 size={18} className="text-emerald-500" />
+                    Performance globale
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>Taux de conversion</span>
+                        <span className="text-sm font-semibold text-emerald-600">{tauxAcceptation}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${tauxAcceptation}%` }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>Taux de réponse</span>
+                        <span className="text-sm font-semibold text-blue-600">
+                          {mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm" style={{ color: theme.textLight }}>Offres pourvues</span>
+                        <span className="text-sm font-semibold text-purple-600">
+                          {mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${mesOffres.length > 0 ? (mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length / mesOffres.length) * 100 : 0}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${tauxAcceptation}%` }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>Taux de réponse</span>
-              <span className="text-sm font-semibold text-blue-600">
-                {mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between mb-1">
-              <span className="text-sm" style={{ color: theme.textLight }}>Offres pourvues</span>
-              <span className="text-sm font-semibold text-purple-600">
-                {mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length}
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${mesOffres.length > 0 ? (mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length / mesOffres.length) * 100 : 0}%` }}></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+          )}
       
           {/* MOT DE PASSE */}
           {activeMenu === "changePassword" && (
@@ -1561,46 +1587,244 @@ const handleSaveEvaluation = useCallback(async () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
             <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-              <h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une offre</h3>
-              <button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button>
+              <h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une nouvelle offre</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} style={{ color: theme.text }} />
+              </button>
             </div>
+            
             <div className="p-6 space-y-4">
-              <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-              <input type="text" placeholder="Lieu *" value={newOffre.lieu} onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              {/* Titre */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Titre du poste <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Développeur Full Stack, Designer UI/UX, ..." 
+                  value={newOffre.titre} 
+                  onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Lieu + Wilaya */}
               <div className="grid grid-cols-2 gap-3">
-                <select value={newOffre.type} onChange={(e) => setNewOffre({...newOffre, type: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-                  <option value="Stage PFE">Stage PFE</option>
-                  <option value="Stage">Stage classique</option>
-                  <option value="Alternance">Alternance</option>
-                  <option value="CDI">CDI</option>
-                  <option value="CDD">CDD</option>
-                </select>
-                <select value={newOffre.duree} onChange={(e) => setNewOffre({...newOffre, duree: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-                  <option value="1-3 mois">1-3 mois</option>
-                  <option value="3-6 mois">3-6 mois</option>
-                  <option value="6-12 mois">6-12 mois</option>
-                  <option value="12+ mois">12+ mois</option>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Lieu précis <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Hydra, Sidi Yahia, ..." 
+                    value={newOffre.lieu} 
+                    onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Wilaya <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    value={newOffre.wilaya} 
+                    onChange={(e) => setNewOffre({...newOffre, wilaya: e.target.value})}
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  >
+                    <option value="">Sélectionner une wilaya</option>
+                    {wilayas.map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Durée + Salaire */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Durée <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 3 mois, 6 mois" 
+                    value={newOffre.duree} 
+                    onChange={(e) => setNewOffre({...newOffre, duree: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Salaire <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 30 000 DA, Négociable" 
+                    value={newOffre.salaire} 
+                    onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Type de stage */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Type de stage <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  value={newOffre.type} 
+                  onChange={(e) => setNewOffre({...newOffre, type: e.target.value})}
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                >
+                  {typesStage.map(type => <option key={type} value={type}>{type}</option>)}
                 </select>
               </div>
-              <input type="text" placeholder="Salaire" value={newOffre.salaire} onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              
+              {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
-                <input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                <input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Date de début <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={newOffre.dateCreation} 
+                    onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Date de fin <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={newOffre.dateFin} 
+                    onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
               </div>
-              <textarea placeholder="Description détaillée *" rows="5" value={newOffre.description} onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
-              <input type="text" placeholder="Compétences (séparées par des virgules)" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              
+              {/* Compétences */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Compétences requises <span className="text-gray-400 text-xs">(optionnel - séparées par des virgules)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: React, Node.js, Python, ..." 
+                  value={competenceInput} 
+                  onChange={(e) => setCompetenceInput(e.target.value)} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Niveau requis + Nombre places */}
               <div className="grid grid-cols-2 gap-3">
-                <select value={newOffre.niveauRequis} onChange={(e) => setNewOffre({...newOffre, niveauRequis: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-                  <option value="Débutant">Débutant</option>
-                  <option value="Intermédiaire">Intermédiaire</option>
-                  <option value="Confirmé">Confirmé</option>
-                  <option value="Expert">Expert</option>
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Niveau requis
+                  </label>
+                  <select 
+                    value={newOffre.niveauRequis} 
+                    onChange={(e) => setNewOffre({...newOffre, niveauRequis: e.target.value})}
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  >
+                    <option value="Débutant">Débutant</option>
+                    <option value="Intermédiaire">Intermédiaire</option>
+                    <option value="Confirmé">Confirmé</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Nombre de places
+                  </label>
+                  <input 
+                    type="number" 
+                    value={newOffre.nombrePlaces} 
+                    onChange={(e) => setNewOffre({...newOffre, nombrePlaces: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Horaires */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Horaires
+                </label>
+                <select 
+                  value={newOffre.horaires} 
+                  onChange={(e) => setNewOffre({...newOffre, horaires: e.target.value})}
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                >
+                  <option value="Temps plein">Temps plein</option>
+                  <option value="Mi-temps">Mi-temps</option>
+                  <option value="Flexible">Flexible</option>
                 </select>
-                <input type="number" placeholder="Nombre de places" value={newOffre.nombrePlaces} onChange={(e) => setNewOffre({...newOffre, nombrePlaces: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
               </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button>
-                <button onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
+              
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Description détaillée <span className="text-red-500">*</span>
+                </label>
+                <textarea 
+                  placeholder="Décrivez les missions, l'environnement de travail, les avantages..." 
+                  rows="5" 
+                  value={newOffre.description} 
+                  onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} 
+                  className="w-full p-2 border rounded-xl resize-none"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Avantages */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Avantages <span className="text-gray-400 text-xs">(optionnel - séparés par des virgules)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Tickets restaurant, Transport, Télétravail, ..." 
+                  value={newOffre.avantages} 
+                  onChange={(e) => setNewOffre({...newOffre, avantages: e.target.value})} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4 border-t" style={{ borderColor: theme.border }}>
+                <button 
+                  onClick={handleAddOffre} 
+                  className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition-all"
+                >
+                  Publier l'offre
+                </button>
+                <button 
+                  onClick={() => setShowAddModal(false)} 
+                  className="flex-1 py-2.5 rounded-xl font-semibold transition-all"
+                  style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+                >
+                  Annuler
+                </button>
               </div>
             </div>
           </div>
@@ -1608,65 +1832,256 @@ const handleSaveEvaluation = useCallback(async () => {
       )}
 
       {/* MODAL MODIFIER OFFRE */}
-{showEditModal && editingOffer && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
-      <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-        <h3 className="font-bold text-lg" style={{ color: theme.text }}>✏️ Modifier l'offre</h3>
-        <button onClick={() => setShowEditModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-          <X size={20} style={{ color: theme.text }} />
-        </button>
-      </div>
-      <div className="p-6 space-y-4">
-        <input type="text" placeholder="Titre du poste *" value={editForm.titre} onChange={(e) => setEditForm({...editForm, titre: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        <input type="text" placeholder="Lieu *" value={editForm.lieu} onChange={(e) => setEditForm({...editForm, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        <div className="grid grid-cols-2 gap-3">
-          <select value={editForm.type} onChange={(e) => setEditForm({...editForm, type: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-            <option value="Stage PFE">Stage PFE</option>
-            <option value="Stage">Stage classique</option>
-            <option value="Alternance">Alternance</option>
-            <option value="CDI">CDI</option>
-            <option value="CDD">CDD</option>
-          </select>
-          <select value={editForm.duree} onChange={(e) => setEditForm({...editForm, duree: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-            <option value="1-3 mois">1-3 mois</option>
-            <option value="3-6 mois">3-6 mois</option>
-            <option value="6-12 mois">6-12 mois</option>
-            <option value="12+ mois">12+ mois</option>
-          </select>
+      {showEditModal && editingOffer && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
+            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+              <h3 className="font-bold text-lg" style={{ color: theme.text }}>✏️ Modifier l'offre</h3>
+              <button onClick={() => setShowEditModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} style={{ color: theme.text }} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {/* Titre */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Titre du poste <span className="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  value={editForm.titre} 
+                  onChange={(e) => setEditForm({...editForm, titre: e.target.value})} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Lieu + Wilaya */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Lieu précis <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={editForm.lieu} 
+                    onChange={(e) => setEditForm({...editForm, lieu: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Wilaya <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    value={editForm.wilaya} 
+                    onChange={(e) => setEditForm({...editForm, wilaya: e.target.value})}
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  >
+                    <option value="">Sélectionner une wilaya</option>
+                    {wilayas.map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Durée + Salaire */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Durée <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={editForm.duree} 
+                    onChange={(e) => setEditForm({...editForm, duree: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Salaire <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={editForm.salaire} 
+                    onChange={(e) => setEditForm({...editForm, salaire: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Type de stage */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Type de stage <span className="text-red-500">*</span>
+                </label>
+                <select 
+                  value={editForm.type} 
+                  onChange={(e) => setEditForm({...editForm, type: e.target.value})}
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                >
+                  {typesStage.map(type => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+              
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Date de début <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={editForm.dateDebut} 
+                    onChange={(e) => setEditForm({...editForm, dateDebut: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Date de fin <span className="text-red-500">*</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={editForm.dateFin} 
+                    onChange={(e) => setEditForm({...editForm, dateFin: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Compétences */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Compétences requises <span className="text-gray-400 text-xs">(optionnel - séparées par des virgules)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: React, Node.js, Python, ..." 
+                  value={editCompetenceInput} 
+                  onChange={(e) => setEditCompetenceInput(e.target.value)} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Niveau requis + Nombre places */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Niveau requis
+                  </label>
+                  <select 
+                    value={editForm.niveauRequis} 
+                    onChange={(e) => setEditForm({...editForm, niveauRequis: e.target.value})}
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                  >
+                    <option value="Débutant">Débutant</option>
+                    <option value="Intermédiaire">Intermédiaire</option>
+                    <option value="Confirmé">Confirmé</option>
+                    <option value="Expert">Expert</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                    Nombre de places
+                  </label>
+                  <input 
+                    type="number" 
+                    value={editForm.nombrePlaces} 
+                    onChange={(e) => setEditForm({...editForm, nombrePlaces: e.target.value})} 
+                    className="w-full p-2 border rounded-xl"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                </div>
+              </div>
+              
+              {/* Horaires */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Horaires
+                </label>
+                <select 
+                  value={editForm.horaires} 
+                  onChange={(e) => setEditForm({...editForm, horaires: e.target.value})}
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
+                >
+                  <option value="Temps plein">Temps plein</option>
+                  <option value="Mi-temps">Mi-temps</option>
+                  <option value="Flexible">Flexible</option>
+                </select>
+              </div>
+              
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Description détaillée <span className="text-red-500">*</span>
+                </label>
+                <textarea 
+                  rows="5" 
+                  value={editForm.description} 
+                  onChange={(e) => setEditForm({...editForm, description: e.target.value})} 
+                  className="w-full p-2 border rounded-xl resize-none"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              {/* Avantages */}
+              <div>
+                <label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>
+                  Avantages <span className="text-gray-400 text-xs">(optionnel - séparés par des virgules)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Tickets restaurant, Transport, Télétravail, ..." 
+                  value={editForm.avantages.join(', ')} 
+                  onChange={(e) => setEditForm({...editForm, avantages: e.target.value.split(',').map(a => a.trim())})} 
+                  className="w-full p-2 border rounded-xl"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4 border-t" style={{ borderColor: theme.border }}>
+                <button 
+                  onClick={handleSaveEdit} 
+                  className="flex-1 bg-emerald-500 text-white py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition-all"
+                >
+                  Enregistrer les modifications
+                </button>
+                <button 
+                  onClick={() => setShowEditModal(false)} 
+                  className="flex-1 py-2.5 rounded-xl font-semibold transition-all"
+                  style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <input type="text" placeholder="Salaire" value={editForm.salaire} onChange={(e) => setEditForm({...editForm, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        <div className="grid grid-cols-2 gap-3">
-          <input type="date" placeholder="Date début" value={editForm.dateDebut} onChange={(e) => setEditForm({...editForm, dateDebut: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-          <input type="date" placeholder="Date fin" value={editForm.dateFin} onChange={(e) => setEditForm({...editForm, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        </div>
-        <textarea placeholder="Description détaillée *" rows="5" value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
-        <input type="text" placeholder="Compétences (séparées par des virgules)" value={editCompetenceInput} onChange={(e) => setEditCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        <div className="grid grid-cols-2 gap-3">
-          <select value={editForm.niveauRequis} onChange={(e) => setEditForm({...editForm, niveauRequis: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
-            <option value="Débutant">Débutant</option>
-            <option value="Intermédiaire">Intermédiaire</option>
-            <option value="Confirmé">Confirmé</option>
-            <option value="Expert">Expert</option>
-          </select>
-          <input type="number" placeholder="Nombre de places" value={editForm.nombrePlaces} onChange={(e) => setEditForm({...editForm, nombrePlaces: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-        </div>
-        <div className="flex gap-3 pt-2">
-          <button onClick={handleSaveEdit} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Enregistrer</button>
-          <button onClick={() => setShowEditModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
       <style>{`
-  @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-  .animate-slide-in { animation: slide-in 0.3s ease-out; }
-  .spinner { border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #10b981; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-`}</style>
+        @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        .animate-slide-in { animation: slide-in 0.3s ease-out; }
+        .spinner { border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #10b981; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      `}</style>
     </div>
   );
 }

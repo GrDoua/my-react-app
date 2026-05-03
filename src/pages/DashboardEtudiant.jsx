@@ -1209,7 +1209,7 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
                         <img src={photoPreview} alt="Photo" className="w-24 h-24 rounded-full border-4 border-white object-cover" />
                       ) : (
                         <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                          <User size={40} className="text-gray-400" />
+                          <User size={40} className="text-gray-400" /> 
                         </div>
                       )}
                       <label className="absolute bottom-0 right-0 bg-emerald-500 p-1.5 rounded-full cursor-pointer hover:bg-emerald-600 transition-colors shadow-md">
