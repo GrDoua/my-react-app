@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 // ============================================
-// COMPOSANT DASHBOARD ADMIN AVEC MODE SOMBRE SYNCHRONISÉ
+// COMPOSANT DASHBOARD ADMIN
 // ============================================
 export function DashboardAdmin({ 
   offres = [], 
@@ -21,7 +21,7 @@ export function DashboardAdmin({
   onLogout, 
   onUpdateProfil, 
   onChangePassword,
-  darkMode  // ← Reçoit darkMode de App.jsx
+  darkMode
 }) {
   // États principaux
   const [activeMenu, setActiveMenu] = useState("profil");
@@ -56,6 +56,11 @@ export function DashboardAdmin({
   const [conventionFile, setConventionFile] = useState(null);
   const [conventionName, setConventionName] = useState("");
   const [showSendConventionModal, setShowSendConventionModal] = useState(false);
+  
+  // États pour visualiser la convention
+  const [showViewConventionModal, setShowViewConventionModal] = useState(false);
+  const [selectedConventionCandidature, setSelectedConventionCandidature] = useState(null);
+  const [conventionPdfUrl, setConventionPdfUrl] = useState(null);
 
   // États pour les graphiques
   const [selectedPeriode, setSelectedPeriode] = useState("mois");
@@ -93,8 +98,11 @@ export function DashboardAdmin({
 
   const currentData = graphData[selectedPeriode];
 
+  // Filtrer les candidatures : seulement "en_attente" et "refusee" dans la section Candidatures
   const candidaturesFiltrees = useMemo(() => {
     let filtered = [...candidatures];
+    // Exclure les candidatures acceptées de la liste des candidatures
+    filtered = filtered.filter(c => c.statut !== "acceptee");
     if (filterStatut !== "Tous") filtered = filtered.filter(c => c.statut === filterStatut);
     if (searchTerm) filtered = filtered.filter(c => 
       (c.etudiantNom || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -102,6 +110,11 @@ export function DashboardAdmin({
     );
     return filtered;
   }, [candidatures, filterStatut, searchTerm]);
+
+  // Filtrer les candidatures acceptées pour la section Conventions
+  const candidaturesAcceptees = useMemo(() => {
+    return candidatures.filter(c => c.statut === "acceptee");
+  }, [candidatures]);
 
   // ============================================
   // NOTIFICATION
@@ -176,7 +189,14 @@ export function DashboardAdmin({
       return;
     }
     if (onUpdateCandidature) {
-      onUpdateCandidature(selectedCandidature.id, "acceptee", { convention: conventionName });
+      // Créer une URL pour le PDF
+      const url = URL.createObjectURL(conventionFile);
+      // Changer le statut de "en_attente" à "acceptee"
+      onUpdateCandidature(selectedCandidature.id, "acceptee", { 
+        convention: conventionName,
+        conventionUrl: url,
+        conventionFile: conventionFile
+      });
       showNotification('success', `✅ Candidature acceptée - Convention: ${conventionName}`);
     }
     setShowConventionModal(false);
@@ -187,22 +207,30 @@ export function DashboardAdmin({
 
   const handleSendConvention = useCallback((candidature) => {
     setSelectedCandidature(candidature);
-    setConventionFile(null);
-    setConventionName("");
     setShowSendConventionModal(true);
   }, []);
 
   const handleSendConventionToCandidat = useCallback(() => {
-    if (!conventionFile) {
-      showNotification('error', "❌ Veuillez sélectionner une convention");
-      return;
+    if (onUpdateCandidature && selectedCandidature) {
+      showNotification('success', `📧 Convention envoyée à ${selectedCandidature.etudiantNom} (${selectedCandidature.email})`);
     }
-    showNotification('success', `📧 Convention envoyée à ${selectedCandidature.etudiantNom} (${selectedCandidature.email})`);
     setShowSendConventionModal(false);
     setSelectedCandidature(null);
-    setConventionFile(null);
-    setConventionName("");
-  }, [conventionFile, selectedCandidature, showNotification]);
+  }, [selectedCandidature, onUpdateCandidature, showNotification]);
+
+  // Fonction pour visualiser la convention
+  const handleViewConvention = useCallback((candidature) => {
+    setSelectedConventionCandidature(candidature);
+    if (candidature.conventionUrl) {
+      setConventionPdfUrl(candidature.conventionUrl);
+    } else if (candidature.conventionFile) {
+      const url = URL.createObjectURL(candidature.conventionFile);
+      setConventionPdfUrl(url);
+    } else {
+      setConventionPdfUrl(null);
+    }
+    setShowViewConventionModal(true);
+  }, []);
 
   // ============================================
   // GESTION DU MOT DE PASSE
@@ -241,14 +269,17 @@ export function DashboardAdmin({
     { id: "profil", label: "Mon profil", icon: <User size={18} /> },
     { id: "statistiques", label: "Tableau de bord", icon: <BarChart3 size={18} /> },
     { id: "candidatures", label: "Candidatures", icon: <Users size={18} /> },
+    { id: "conventions", label: "Conventions", icon: <FileText size={18} /> },
     { id: "changePassword", label: "Changer mot de passe", icon: <Key size={18} /> },
     { id: "aide", label: "Conditions & Aide", icon: <HelpCircle size={18} /> },
   ];
 
   const getMenuTitle = (id) => {
     const titles = {
-      profil: 'Mon profil', statistiques: 'Tableau de bord',
+      profil: 'Mon profil', 
+      statistiques: 'Tableau de bord',
       candidatures: 'Candidatures',
+      conventions: 'Conventions',
       changePassword: 'Changer le mot de passe',
       aide: 'Conditions & Aide'
     };
@@ -297,22 +328,22 @@ export function DashboardAdmin({
                   </div>
                 )}
               </div>
-              <p className="text-xs mt-3 text-center" style={{ color: theme.textLight }}>La convention sera envoyée automatiquement à l'étudiant par email</p>
+              <p className="text-xs mt-3 text-center" style={{ color: theme.textLight }}>La candidature sera déplacée vers la section Conventions</p>
             </div>
             <div className="p-6 border-t flex gap-3" style={{ borderColor: theme.border }}>
-              <button onClick={handleConfirmAcceptation} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600 flex items-center justify-center gap-2"><Send size={16} /> Accepter & Envoyer</button>
+              <button onClick={handleConfirmAcceptation} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600 flex items-center justify-center gap-2"><Check size={16} /> Accepter la candidature</button>
               <button onClick={() => setShowConventionModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL ENVOI CONVENTION À UN CANDIDAT ACCEPTÉ */}
+      {/* MODAL ENVOI CONVENTION */}
       {showSendConventionModal && selectedCandidature && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="rounded-2xl max-w-md w-full shadow-2xl" style={{ backgroundColor: theme.card }}>
             <div className="p-6 border-b flex justify-between items-center" style={{ borderColor: theme.border }}>
-              <h3 className="text-xl font-bold" style={{ color: theme.text }}>Envoyer une convention</h3>
+              <h3 className="text-xl font-bold" style={{ color: theme.text }}>Envoyer la convention</h3>
               <button onClick={() => setShowSendConventionModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button>
             </div>
             <div className="p-6">
@@ -320,21 +351,15 @@ export function DashboardAdmin({
                 <p className="font-medium" style={{ color: theme.text }}>{selectedCandidature.etudiantNom}</p>
                 <p className="text-sm" style={{ color: theme.textLight }}>{selectedCandidature.offreTitre}</p>
                 <p className="text-xs mt-1" style={{ color: theme.textLight }}>📧 {selectedCandidature.email}</p>
-              </div>
-              <div className="border-2 border-dashed rounded-xl p-5 text-center hover:border-emerald-400 transition" style={{ borderColor: theme.border }}>
-                <Upload size={40} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-                <p className="mb-2" style={{ color: theme.text }}>Sélectionner la convention (PDF)</p>
-                <p className="text-xs mb-3" style={{ color: theme.textLight }}>Format PDF uniquement (max 5MB)</p>
-                <label className="bg-emerald-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-emerald-600 inline-flex items-center gap-2 text-sm">
-                  <Upload size={14} /> Choisir un fichier
-                  <input type="file" accept=".pdf" className="hidden" onChange={handleUploadConvention} />
-                </label>
-                {conventionName && (
-                  <div className="mt-3 p-2 rounded-lg flex items-center justify-between" style={{ backgroundColor: theme.cardAlt }}>
-                    <div className="flex items-center gap-2"><FileText size={16} className="text-emerald-500" /><span className="text-sm" style={{ color: theme.text }}>{conventionName}</span></div>
-                    <CheckCircle size={16} className="text-emerald-500" />
-                  </div>
+                {selectedCandidature.convention && (
+                  <p className="text-xs mt-1 text-emerald-600">📄 Convention: {selectedCandidature.convention}</p>
                 )}
+              </div>
+              
+              <div className="rounded-xl p-4 text-center" style={{ backgroundColor: theme.cardAlt }}>
+                <FileText size={48} className="mx-auto mb-2 text-emerald-500" />
+                <p className="text-sm mb-2" style={{ color: theme.text }}>Convention prête à être envoyée</p>
+                <p className="text-xs" style={{ color: theme.textLight }}>Un email sera envoyé à l'étudiant avec la convention en pièce jointe</p>
               </div>
             </div>
             <div className="p-6 border-t flex gap-3" style={{ borderColor: theme.border }}>
@@ -345,55 +370,119 @@ export function DashboardAdmin({
         </div>
       )}
 
-      {/* SIDEBAR */}
-   <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
-  <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-    {/* Avatar ou icône par défaut */}
-    <div className="flex justify-center mb-4">
-      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-md">
-        <span className="text-2xl font-bold text-white">
-          {chefProfil.nom?.charAt(0) || '👨'}
-        </span>
-      </div>
-    </div>
-    
-    <div className="text-center">
-      <p className="text-xl font-bold text-white tracking-tight">{chefProfil.nom}</p>
-      <p className="text-emerald-400 text-xs font-medium mt-1">{chefProfil.titre}</p>
-    </div>
-  </div>
-  
-  <nav className="p-4">
-    {menuItems.map(item => (
-      <button 
-        key={item.id} 
-        onClick={() => setActiveMenu(item.id)} 
-        className={`
-          w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-all duration-200
-          ${activeMenu === item.id 
-            ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
-            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
-          }
-        `}
-      >
-        <div className={`${activeMenu === item.id ? "text-emerald-400" : ""}`}>
-          {item.icon}
+      {/* MODAL VISUALISATION CONVENTION */}
+      {showViewConventionModal && selectedConventionCandidature && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="rounded-2xl max-w-3xl w-full shadow-2xl" style={{ backgroundColor: theme.card }}>
+            <div className="p-6 border-b flex justify-between items-center" style={{ borderColor: theme.border }}>
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: theme.text }}>
+                <FileText size={24} className="text-emerald-500" />
+                Convention de stage
+              </h3>
+              <button onClick={() => setShowViewConventionModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} style={{ color: theme.text }} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                <p className="font-medium" style={{ color: theme.text }}>{selectedConventionCandidature.etudiantNom}</p>
+                <p className="text-sm" style={{ color: theme.textLight }}>{selectedConventionCandidature.offreTitre}</p>
+                <p className="text-xs mt-1" style={{ color: theme.textLight }}>📧 {selectedConventionCandidature.email}</p>
+                {selectedConventionCandidature.convention && (
+                  <p className="text-xs mt-1 text-emerald-600">📄 {selectedConventionCandidature.convention}</p>
+                )}
+              </div>
+              
+              <div className="border rounded-xl p-6 text-center" style={{ borderColor: theme.border, backgroundColor: theme.cardAlt }}>
+                {conventionPdfUrl ? (
+                  <div>
+                    <iframe 
+                      src={conventionPdfUrl} 
+                      className="w-full h-96 rounded-lg mb-3"
+                      title="Convention PDF"
+                    />
+                    <a 
+                      href={conventionPdfUrl} 
+                      download={selectedConventionCandidature.convention || "convention.pdf"}
+                      className="inline-flex items-center gap-2 bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition"
+                    >
+                      <Download size={16} /> Télécharger la convention
+                    </a>
+                  </div>
+                ) : (
+                  <div>
+                    <FileText size={64} className="mx-auto mb-3 text-emerald-500" />
+                    <p className="text-lg font-medium mb-2" style={{ color: theme.text }}>Aperçu de la convention</p>
+                    <p className="text-sm mb-4" style={{ color: theme.textLight }}>
+                      {selectedConventionCandidature.convention 
+                        ? `Convention: ${selectedConventionCandidature.convention}`
+                        : "Aucune convention n'a été téléchargée pour cette candidature"}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-6 border-t flex justify-end" style={{ borderColor: theme.border }}>
+              <button onClick={() => setShowViewConventionModal(false)} className="px-4 py-2 rounded-lg font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
+                Fermer
+              </button>
+            </div>
+          </div>
         </div>
-        <span className="text-sm font-medium">{item.label}</span>
-      </button>
-    ))}
-    
-    <div className="h-px bg-gray-700 my-3"></div>
-    
-    <button 
-      onClick={onLogout} 
-      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200"
-    >
-      <LogOut size={18} />
-      <span className="text-sm font-medium">Déconnexion</span>
-    </button>
-  </nav>
-</div>
+      )}
+
+      {/* SIDEBAR */}
+      <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
+        <div className="p-6 border-b" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-md">
+              <span className="text-2xl font-bold text-white">
+                {chefProfil.nom?.charAt(0) || '👨'}
+              </span>
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-white tracking-tight">{chefProfil.nom}</p>
+            <p className="text-emerald-400 text-xs font-medium mt-1">{chefProfil.titre}</p>
+          </div>
+        </div>
+        
+        <nav className="p-4">
+          {menuItems.map(item => (
+            <button 
+              key={item.id} 
+              onClick={() => setActiveMenu(item.id)} 
+              className={`
+                w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition-all duration-200
+                ${activeMenu === item.id 
+                  ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                }
+              `}
+            >
+              <div className={`${activeMenu === item.id ? "text-emerald-400" : ""}`}>
+                {item.icon}
+              </div>
+              <span className="text-sm font-medium">{item.label}</span>
+              {item.id === "conventions" && candidaturesAcceptees.length > 0 && (
+                <span className="ml-auto bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
+                  {candidaturesAcceptees.length}
+                </span>
+              )}
+            </button>
+          ))}
+          
+          <div className="h-px bg-gray-700 my-3"></div>
+          
+          <button 
+            onClick={onLogout} 
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200"
+          >
+            <LogOut size={18} />
+            <span className="text-sm font-medium">Déconnexion</span>
+          </button>
+        </nav>
+      </div>
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -456,10 +545,10 @@ export function DashboardAdmin({
                   <div className="flex justify-between items-start"><div><p className="text-sm" style={{ color: theme.textLight }}>Entreprises</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{stats.totalEntreprises}</p><p className="text-xs text-green-600 mt-1 flex items-center gap-1"><ArrowUp size={12} /> +5</p></div><div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center"><Building size={24} className="text-blue-600" /></div></div>
                 </div>
                 <div className="rounded-2xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-purple-500" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start"><div><p className="text-sm" style={{ color: theme.textLight }}>Candidatures</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{stats.totalCandidatures}</p><p className="text-xs text-green-600 mt-1 flex items-center gap-1"><ArrowUp size={12} /> +{stats.evolutionCandidatures}%</p></div><div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center"><Users size={24} className="text-purple-600" /></div></div>
+                  <div className="flex justify-between items-start"><div><p className="text-sm" style={{ color: theme.textLight }}>Candidatures actives</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{candidatures.filter(c => c.statut === "en_attente").length}</p></div><div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center"><Users size={24} className="text-purple-600" /></div></div>
                 </div>
                 <div className="rounded-2xl p-6 shadow-sm hover:shadow-md transition border-l-4 border-orange-500" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-start"><div><p className="text-sm" style={{ color: theme.textLight }}>Taux acceptation</p><p className="text-3xl font-bold text-emerald-600">{stats.tauxAcceptation}%</p></div><div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center"><TrendingUp size={24} className="text-orange-600" /></div></div>
+                  <div className="flex justify-between items-start"><div><p className="text-sm" style={{ color: theme.textLight }}>Conventions</p><p className="text-3xl font-bold text-emerald-600">{candidaturesAcceptees.length}</p></div><div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center"><FileText size={24} className="text-orange-600" /></div></div>
                 </div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -476,46 +565,114 @@ export function DashboardAdmin({
             </div>
           )}
 
-          {/* CANDIDATURES */}
+          {/* CANDIDATURES - SEULEMENT EN ATTENTE ET REFUSEES */}
           {activeMenu === "candidatures" && (
             <div>
               <div className="flex flex-wrap gap-4 mb-5 items-center justify-between">
                 <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Gestion des candidatures</h3>
                 <div className="flex gap-3">
                   <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} /><input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 pr-3 py-2 border rounded-xl text-sm w-64" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /></div>
-                  <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border rounded-xl text-sm" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}><option value="Tous">Tous</option><option value="en_attente">En attente</option><option value="acceptee">Acceptée</option><option value="refusee">Refusée</option></select>
+                  <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border rounded-xl text-sm" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
+                    <option value="Tous">Tous</option>
+                    <option value="en_attente">En attente</option>
+                    <option value="refusee">Refusée</option>
+                  </select>
                 </div>
               </div>
               <div className="space-y-3">
-                {candidaturesFiltrees.map(c => (
-                  <div key={c.id} className={`rounded-xl p-4 shadow-sm border-l-4 ${c.statut === "acceptee" ? "border-emerald-400" : c.statut === "refusee" ? "border-rose-400" : "border-yellow-400"}`} style={{ backgroundColor: theme.card }}>
-                    <div className="flex justify-between items-start flex-wrap gap-3">
-                      <div className="flex-1">
-                        <h4 className="font-bold" style={{ color: theme.text }}>{c.etudiantNom}</h4>
-                        <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre}</p>
-                        <p className="text-xs" style={{ color: theme.textLight }}>Postulé le {c.date}</p>
-                        {c.convention && (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-emerald-600"><FileText size={12} /> Convention: {c.convention}</div>
-                        )}
-                      </div>
-                      <div className="flex gap-2">
-                        {c.statut === "acceptee" && (
-                          <button onClick={() => handleSendConvention(c)} className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 flex items-center gap-1"><Send size={14} /> Convention</button>
-                        )}
-                        {c.statut === "en_attente" && (
-                          <>
-                            <button onClick={() => handleAccepterCandidature(c)} className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 flex items-center gap-1"><FileText size={14} /> Accepter + Convention</button>
-                            <button onClick={() => handleRefuserCandidature(c.id)} className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-rose-600 flex items-center gap-1"><X size={14} /> Refuser</button>
-                          </>
-                        )}
-                        {c.statut === "refusee" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">Refusée</span>
-                        )}
+                {candidaturesFiltrees.length === 0 ? (
+                  <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                    <CheckCircle size={48} className="mx-auto mb-3 text-emerald-500" />
+                    <p className="text-lg font-medium" style={{ color: theme.text }}>Aucune candidature en attente</p>
+                    <p className="text-sm mt-2" style={{ color: theme.textLight }}>Toutes les candidatures ont été traitées</p>
+                  </div>
+                ) : (
+                  candidaturesFiltrees.map(c => (
+                    <div key={c.id} className={`rounded-xl p-4 shadow-sm border-l-4 ${c.statut === "refusee" ? "border-rose-400" : "border-yellow-400"}`} style={{ backgroundColor: theme.card }}>
+                      <div className="flex justify-between items-start flex-wrap gap-3">
+                        <div className="flex-1">
+                          <h4 className="font-bold" style={{ color: theme.text }}>{c.etudiantNom}</h4>
+                          <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre}</p>
+                          <p className="text-xs" style={{ color: theme.textLight }}>Postulé le {c.date}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          {c.statut === "en_attente" && (
+                            <>
+                              <button onClick={() => handleAccepterCandidature(c)} className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 flex items-center gap-1"><FileText size={14} /> Accepter + Convention</button>
+                              <button onClick={() => handleRefuserCandidature(c.id)} className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-rose-600 flex items-center gap-1"><X size={14} /> Refuser</button>
+                            </>
+                          )}
+                          {c.statut === "refusee" && (
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300">Refusée</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
+            </div>
+          )}
+
+          {/* CONVENTIONS - TOUTES LES CANDIDATURES ACCEPTEES */}
+          {activeMenu === "conventions" && (
+            <div>
+              <div className="mb-6">
+                <h3 className="text-xl font-bold" style={{ color: theme.text }}>Conventions de stage</h3>
+                <p className="text-sm" style={{ color: theme.textLight }}>
+                  {candidaturesAcceptees.length} convention{candidaturesAcceptees.length > 1 ? 's' : ''} disponible{candidaturesAcceptees.length > 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {candidaturesAcceptees.length === 0 ? (
+                <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                  <FileText size={48} className="mx-auto mb-3 text-gray-400" />
+                  <p className="text-lg font-medium" style={{ color: theme.text }}>Aucune convention disponible</p>
+                  <p className="text-sm mt-2" style={{ color: theme.textLight }}>Les conventions apparaîtront ici après acceptation des candidatures</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {candidaturesAcceptees.map(candidature => (
+                    <div key={candidature.id} className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400 hover:shadow-md transition" style={{ backgroundColor: theme.card }}>
+                      <div className="flex justify-between items-start flex-wrap gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+                              <span className="text-sm font-bold text-emerald-600">
+                                {candidature.etudiantNom?.charAt(0) || 'E'}
+                              </span>
+                            </div>
+                            <h4 className="font-bold text-lg" style={{ color: theme.text }}>{candidature.etudiantNom}</h4>
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400">Acceptée</span>
+                          </div>
+                          <p className="text-sm" style={{ color: theme.textLight }}>
+                            <Briefcase size={14} className="inline mr-1" /> {candidature.offreTitre}
+                          </p>
+                          <div className="flex gap-3 mt-2 text-xs" style={{ color: theme.textLight }}>
+                            <span className="flex items-center gap-1"><Calendar size={12} /> Postulé le {candidature.date}</span>
+                            <span className="flex items-center gap-1"><Mail size={12} /> {candidature.email}</span>
+                          </div>
+                          {candidature.convention && (
+                            <div className="mt-2 flex items-center gap-2 text-xs text-emerald-600">
+                              <FileText size={12} /> {candidature.convention}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => handleViewConvention(candidature)} 
+                            className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-600 flex items-center gap-2 transition"
+                          >
+                            <Eye size={16} /> Voir convention
+                          </button>
+                         
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -526,8 +683,9 @@ export function DashboardAdmin({
 
           {/* AIDE */}
           {activeMenu === "aide" && (
-            <div className="max-w-4xl mx-auto space-y-6"><div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}><h3 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: theme.text }}><HelpCircle size={24} className="text-emerald-500" /> Centre d'aide</h3><p className="text-sm mb-6" style={{ color: theme.textLight }}>Retrouvez ici toutes les informations nécessaires pour utiliser la plateforme</p><div className="space-y-4"><div className="border-b pb-4" style={{ borderColor: theme.border }}><h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><BookOpen size={16} className="text-emerald-500" /> Rôle de l'administrateur</h4><p className="text-sm" style={{ color: theme.textLight }}>En tant qu'administrateur, vous pouvez gérer les candidatures (accepter avec convention, refuser), et superviser l'ensemble du processus.</p></div><div className="border-b pb-4" style={{ borderColor: theme.border }}><h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><FileText size={16} className="text-emerald-500" /> Comment gérer les conventions ?</h4><p className="text-sm" style={{ color: theme.textLight }}>1. Acceptez une candidature avec le bouton "Accepter + Convention"<br />2. Téléchargez la convention PDF<br />3. La convention sera envoyée automatiquement à l'étudiant</p></div><div className="rounded-xl p-4 border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}><h4 className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4><p className="text-sm" style={{ color: theme.textLight }}>support@stageflow.dz</p></div></div></div></div>
+            <div className="max-w-4xl mx-auto space-y-6"><div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}><h3 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: theme.text }}><HelpCircle size={24} className="text-emerald-500" /> Centre d'aide</h3><p className="text-sm mb-6" style={{ color: theme.textLight }}>Retrouvez ici toutes les informations nécessaires pour utiliser la plateforme</p><div className="space-y-4"><div className="border-b pb-4" style={{ borderColor: theme.border }}><h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><BookOpen size={16} className="text-emerald-500" /> Rôle de l'administrateur</h4><p className="text-sm" style={{ color: theme.textLight }}>En tant qu'administrateur, vous pouvez gérer les candidatures (accepter avec convention, refuser), et superviser l'ensemble du processus.</p></div><div className="border-b pb-4" style={{ borderColor: theme.border }}><h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}><FileText size={16} className="text-emerald-500" /> Comment gérer les conventions ?</h4><p className="text-sm" style={{ color: theme.textLight }}>1. Acceptez une candidature avec le bouton "Accepter + Convention"<br />2. Téléchargez la convention PDF<br />3. La candidature disparaît de la section "Candidatures"<br />4. Elle apparaît dans la section "Conventions"<br />5. Cliquez sur "Envoyer" pour envoyer la convention à l'étudiant</p></div><div className="rounded-xl p-4 border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}><h4 className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4><p className="text-sm" style={{ color: theme.textLight }}>support@stageflow.dz</p></div></div></div></div>
           )}
+
         </div>
       </div>
 

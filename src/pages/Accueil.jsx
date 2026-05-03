@@ -45,11 +45,8 @@ export function PageAccueil({ allerAuxOffres, onEnvoyerContact, setPage, darkMod
       {/* Hero Section avec overlay adapté */}
       <div className="relative overflow-hidden py-20 px-4">
         <div className="absolute inset-0">
-          <img 
-            src="https://www.e-relation-client.com/wp-content/uploads/2019/05/adults-analysis-brainstorming-1661004.jpg" 
-            alt="background" 
-            className="w-full h-full object-cover" 
-          />
+         <img src="https://xtalks.com/wp-content/uploads/2019/05/64805283_m-scaled.jpg" 
+         />
           <div className={`absolute inset-0 ${darkMode ? 'bg-black/70' : 'bg-black/40'}`}></div>
         </div>
         <div className="relative max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-10">

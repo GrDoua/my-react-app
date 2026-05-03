@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { X, Eye, EyeOff, Building2, GraduationCap, Shield } from "lucide-react";
+import { api } from '../api';
 
-export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMode, forceLogin, hideRegister }) {
+export function ModalAuth({ 
+  type, 
+  onClose, 
+  userType, 
+  darkMode, 
+  forceLogin, 
+  hideRegister,
+  onLogin,     // Nouvelle prop
+  onRegister   // Nouvelle prop
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [nom, setNom] = useState("");
@@ -12,6 +22,7 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [currentType, setCurrentType] = useState(type);
+  const [loading, setLoading] = useState(false);
 
   // Thème basé sur darkMode
   const theme = {
@@ -25,7 +36,6 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
     iconColor: darkMode ? '#60a5fa' : '#2563eb'
   };
 
-  // Si forceLogin est true, on force le mode login
   if (forceLogin && currentType !== "login") {
     setCurrentType("login");
   }
@@ -53,7 +63,6 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
       if (!filiere.trim()) newErrors.filiere = "Filière obligatoire";
       if (!universite.trim()) newErrors.universite = "Université obligatoire";
       if (!matricule.trim()) newErrors.matricule = "Matricule obligatoire";
-
     }
     if (userType === "entreprise") {
       if (!secteur.trim()) newErrors.secteur = "Secteur d'activité obligatoire";
@@ -62,27 +71,77 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (currentType === "login") {
-      if (validateLogin()) onLogin(email, password, userType);
-    } else {
-      if (validateRegister()) {
-        const userData = { nom, email, password, role: userType };
-        if (userType === "etudiant") {
-          userData.filiere = filiere;
-          userData.universite = universite;
-          userData.matricule = matricule;
+  const handleLogin = async () => {
+    if (!validateLogin()) return;
+    
+    setLoading(true);
+    try {
+      const response = await api.login({ email, password });
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Appeler la prop onLogin du parent (App)
+        if (onLogin) {
+          await onLogin(email, password, userType);
         }
-        if (userType === "entreprise") {
-          userData.secteur = secteur;
-        }
-        onRegister(userData);
+        onClose(); // Fermer la modale après login
+      } else {
+        setErrors({ general: data.message || "Email ou mot de passe incorrect" });
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      setErrors({ general: "Erreur de connexion au serveur" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Récupérer l'icône et le titre selon le type d'utilisateur
+  const handleRegister = async () => {
+    if (!validateRegister()) return;
+    
+    setLoading(true);
+    try {
+      const userData = { 
+        email, 
+        password, 
+        role: userType,
+        nom: nom
+      };
+      
+      if (userType === "etudiant") {
+        userData.filiere = filiere;
+        userData.universite = universite;
+        userData.matricule = matricule;
+        userData.prenom = "";
+      }
+      
+      if (userType === "entreprise") {
+        userData.secteur = secteur;
+      }
+      
+      // Appeler la prop onRegister du parent (App)
+      if (onRegister) {
+        await onRegister(userData);
+      }
+      onClose(); // Fermer la modale après inscription
+      
+    } catch (error) {
+      console.error("Register error:", error);
+      setErrors({ general: "Erreur de connexion au serveur" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (currentType === "login") {
+      handleLogin();
+    } else {
+      handleRegister();
+    }
+  };
+
   const getIconAndTitle = () => {
     if (userType === "etudiant") {
       return { icon: <GraduationCap size={22} style={{ color: theme.iconColor }} />, title: "Espace Étudiant" };
@@ -119,7 +178,6 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
           </button>
         </div>
 
-        {/* Si hideRegister est true et qu'on essaie d'aller en inscription, on bloque */}
         {hideRegister && currentType === "register" ? (
           <div className="p-6 text-center">
             <div className={`p-4 rounded-xl ${darkMode ? 'bg-red-900/30' : 'bg-red-50'}`}>
@@ -140,20 +198,20 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-4 space-y-4">
+            {errors.general && (
+              <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-2 rounded-lg text-sm text-center">
+                {errors.general}
+              </div>
+            )}
+
             {currentType === "register" && (
               <input
                 type="text"
                 placeholder="Nom complet"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
-                className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                  errors.nom ? "border-red-500" : ""
-                }`}
-                style={{ 
-                  backgroundColor: theme.inputBg, 
-                  color: theme.text, 
-                  borderColor: errors.nom ? '#ef4444' : theme.inputBorder 
-                }}
+                className="w-full p-2 border rounded-lg"
+                style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
               />
             )}
 
@@ -162,14 +220,8 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
               placeholder="Email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                errors.email ? "border-red-500" : ""
-              }`}
-              style={{ 
-                backgroundColor: theme.inputBg, 
-                color: theme.text, 
-                borderColor: errors.email ? '#ef4444' : theme.inputBorder 
-              }}
+              className="w-full p-2 border rounded-lg"
+              style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
             />
 
             <div className="relative">
@@ -178,22 +230,14 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
                 placeholder="Mot de passe"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full p-2 border rounded-lg pr-10 focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                  errors.password ? "border-red-500" : ""
-                }`}
-                style={{ 
-                  backgroundColor: theme.inputBg, 
-                  color: theme.text, 
-                  borderColor: errors.password ? '#ef4444' : theme.inputBorder 
-                }}
+                className="w-full p-2 border rounded-lg pr-10"
+                style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 transition"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2"
                 style={{ color: theme.textLight }}
-                onMouseEnter={(e) => e.currentTarget.style.color = theme.text}
-                onMouseLeave={(e) => e.currentTarget.style.color = theme.textLight}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -206,40 +250,24 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
                   placeholder="Filière"
                   value={filiere}
                   onChange={(e) => setFiliere(e.target.value)}
-                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                    errors.filiere ? "border-red-500" : ""
-                  }`}
-                  style={{ 
-                    backgroundColor: theme.inputBg, 
-                    color: theme.text, 
-                    borderColor: errors.filiere ? '#ef4444' : theme.inputBorder 
-                  }}
+                  className="w-full p-2 border rounded-lg"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
                 />
                 <input
                   type="text"
                   placeholder="Université"
                   value={universite}
                   onChange={(e) => setUniversite(e.target.value)}
-                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                    errors.universite ? "border-red-500" : ""
-                  }`}
-                  style={{ 
-                    backgroundColor: theme.inputBg, 
-                    color: theme.text, 
-                    borderColor: errors.universite ? '#ef4444' : theme.inputBorder 
-                  }}
+                  className="w-full p-2 border rounded-lg"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
                 />
                 <input
                   type="text"
                   placeholder="Matricule"
                   value={matricule}
                   onChange={(e) => setMatricule(e.target.value)}
-                  className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                  style={{ 
-                    backgroundColor: theme.inputBg, 
-                    color: theme.text, 
-                    borderColor: theme.inputBorder 
-                  }}
+                  className="w-full p-2 border rounded-lg"
+                  style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
                 />
               </>
             )}
@@ -250,32 +278,19 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
                 placeholder="Secteur d'activité"
                 value={secteur}
                 onChange={(e) => setSecteur(e.target.value)}
-                className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none ${
-                  errors.secteur ? "border-red-500" : ""
-                }`}
-                style={{ 
-                  backgroundColor: theme.inputBg, 
-                  color: theme.text, 
-                  borderColor: errors.secteur ? '#ef4444' : theme.inputBorder 
-                }}
+                className="w-full p-2 border rounded-lg"
+                style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.inputBorder }}
               />
             )}
 
-            {errors.nom && <p className="text-red-500 text-sm -mt-2">{errors.nom}</p>}
-            {errors.email && <p className="text-red-500 text-sm -mt-2">{errors.email}</p>}
-            {errors.password && <p className="text-red-500 text-sm -mt-2">{errors.password}</p>}
-            {errors.filiere && <p className="text-red-500 text-sm -mt-2">{errors.filiere}</p>}
-            {errors.universite && <p className="text-red-500 text-sm -mt-2">{errors.universite}</p>}
-            {errors.secteur && <p className="text-red-500 text-sm -mt-2">{errors.secteur}</p>}
-
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
             >
-              {currentType === "login" ? "Se connecter" : "S'inscrire"}
+              {loading ? "Chargement..." : (currentType === "login" ? "Se connecter" : "S'inscrire")}
             </button>
 
-            {/* Afficher le lien vers l'inscription SEULEMENT si hideRegister est false */}
             {!hideRegister && currentType === "login" && (
               <div className="text-center pt-2 border-t" style={{ borderColor: theme.border }}>
                 <p className="text-sm" style={{ color: theme.textLight }}>
@@ -292,7 +307,6 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
               </div>
             )}
 
-            {/* Afficher le lien vers la connexion SEULEMENT si hideRegister est false */}
             {!hideRegister && currentType === "register" && (
               <div className="text-center pt-2 border-t" style={{ borderColor: theme.border }}>
                 <p className="text-sm" style={{ color: theme.textLight }}>
@@ -309,7 +323,6 @@ export function ModalAuth({ type, onClose, onLogin, onRegister, userType, darkMo
               </div>
             )}
 
-            {/* Message pour les admins (connexion uniquement) */}
             {hideRegister && (
               <div className="text-center pt-2 border-t" style={{ borderColor: theme.border }}>
                 <p className="text-xs" style={{ color: theme.textLight }}>

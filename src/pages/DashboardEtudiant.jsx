@@ -1,17 +1,16 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
-  User, Briefcase, Send, Calendar, Heart, Star, Settings, FileText,
-  TrendingUp, LogOut, MapPin, Clock, DollarSign, Upload, Camera, Save,
+  User, Briefcase, Send, Heart, Star, Settings, FileText,Bell, Phone,
+  LogOut, MapPin, Clock, DollarSign, Upload, Camera, Save,
   X, CheckCircle, AlertCircle, Key, Download, FilePlus, Edit, Building2, Search,
-  Trash2, Eye, ChevronDown, ChevronRight, Globe, Phone, Mail, MapPin as MapPinIcon,
-  Filter, SlidersHorizontal, Plus, Trash
+  Filter, SlidersHorizontal, Plus, Trash2,Calendar, XCircle,Mail,HelpCircle, MessageCircle
 } from "lucide-react";
-import jsPDF from 'jspdf';
+import { api } from '../api';
 
 // ============================================
-// DONNÉES DE TEST POUR LES OFFRES
+// DONNÉES DE TEST (fallback si API échoue)
 // ============================================
-const offersData = [
+const fallbackOffers = [
   {
     id: 1,
     titre: "Développeur Full Stack React/Node.js",
@@ -37,35 +36,13 @@ const offersData = [
   {
     id: 3,
     titre: "Data Analyst",
-    entreprise: "Consulting Group",
+    entreprise: "Data Corp",
     lieu: "Constantine",
-    type: "Alternance",
-    duree: "12 mois",
-    salaire: "35 000 DA",
-    description: "Analyse de données, création de dashboards et reporting.",
-    competences: ["Python", "SQL", "Power BI", "Excel"]
-  },
-  {
-    id: 4,
-    titre: "Designer UI/UX",
-    entreprise: "Creative Studio",
-    lieu: "Alger",
-    type: "Stage",
-    duree: "4 mois",
-    salaire: "20 000 DA",
-    description: "Design d'interfaces utilisateur et expérience utilisateur.",
-    competences: ["Figma", "Adobe XD", "Photoshop", "UI/UX"]
-  },
-  {
-    id: 5,
-    titre: "DevOps Engineer",
-    entreprise: "Cloud Solutions",
-    lieu: "Oran",
     type: "Stage PFE",
     duree: "6 mois",
     salaire: "30 000 DA",
-    description: "Mise en place de pipelines CI/CD et infrastructure cloud.",
-    competences: ["Docker", "Kubernetes", "Jenkins", "AWS"]
+    description: "Analyse de données et création de rapports.",
+    competences: ["Python", "SQL", "Power BI"]
   }
 ];
 
@@ -182,7 +159,7 @@ const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, pla
           <Plus size={16} /> Ajouter
         </button>
       </div>
-      {items.length > 0 ? (
+      {items && items.length > 0 ? (
         <ul className="space-y-1 mt-2">
           {items.map((item, index) => (
             <li key={index} className="flex items-center justify-between p-2 rounded-lg" style={{ backgroundColor: themeList.cardAlt }}>
@@ -194,7 +171,7 @@ const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, pla
                 onClick={() => onRemove(index)}
                 className="text-rose-500 hover:text-rose-600 transition"
               >
-                <Trash size={14} />
+                <Trash2 size={14} />
               </button>
             </li>
           ))}
@@ -209,8 +186,19 @@ const ListSection = ({ title, items, onAdd, onRemove, newValue, setNewValue, pla
 // ============================================
 // COMPOSANT PRINCIPAL DASHBOARD ETUDIANT
 // ============================================
-export function DashboardEtudiant({ etudiant, offres = offersData, candidatures, onPostuler, onLogout, onUpdateProfil, onChangePassword, darkMode = false }) {
+export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChangePassword, darkMode = false }) {
   
+  // États pour les données API
+  const [offres, setOffres] = useState([]);
+  const [candidatures, setCandidatures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const token = localStorage.getItem('token');
+  // États pour la modale de confirmation de suppression
+const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+const [candidatureToDelete, setCandidatureToDelete] = useState(null);
+// États pour les évaluations reçues
+const [mesEvaluations, setMesEvaluations] = useState([]);
+const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   // Thème basé sur darkMode
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
@@ -224,17 +212,17 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   };
 
   // ============================================
-  // 1. TOUS LES useState
+  // ÉTATS
   // ============================================
   const [activeMenu, setActiveMenu] = useState("offres");
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [filters, setFilters] = useState({ 
     search: '', 
     type: '', 
-    ville: '',
-    duree: '',
-    salaireMin: '',
-    salaireMax: ''
+    ville: '', 
+    duree: '', 
+    salaireMin: '', 
+    salaireMax: '' 
   });
   const [tempFilters, setTempFilters] = useState({
     type: '', ville: '', duree: '', salaireMin: '', salaireMax: ''
@@ -246,7 +234,8 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   
   // États pour le profil
   const [isEditing, setIsEditing] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState(etudiant?.profilePhoto || null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [formData, setFormData] = useState({
     nom: etudiant?.nom || "", 
     prenom: etudiant?.prenom || "", 
@@ -263,16 +252,11 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   
   // États pour le CV
   const [uploadedCv, setUploadedCv] = useState(null);
-  const [cvName, setCvName] = useState(etudiant?.cvName || "");
   const [isCvEditing, setIsCvEditing] = useState(false);
-  
-  // Listes pour le CV
   const [experiences, setExperiences] = useState([]);
   const [formations, setFormations] = useState([]);
   const [langues, setLangues] = useState([]);
   const [centresInteret, setCentresInteret] = useState([]);
-  
-  // États temporaires pour les ajouts
   const [newExperience, setNewExperience] = useState("");
   const [newFormation, setNewFormation] = useState("");
   const [newLangue, setNewLangue] = useState("");
@@ -283,8 +267,232 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // ============================================
-  // 2. FONCTION getCurrentCv
+  // FONCTIONS (déclarées AVANT d'être utilisées)
   // ============================================
+  const showNotification = useCallback((type, message) => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
+  }, []);
+
+  const fetchStudentProfile = useCallback(async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) return;
+    
+    try {
+      const response = await api.getStudentProfile(currentToken);
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        const student = data.student;
+        
+        setFormData({
+          nom: student.nom || "",
+          prenom: student.prenom || "",
+          email: student.email || "",
+          matricule: student.matricule || "",
+          filiere: student.filiere || "",
+          universite: student.universite || "",
+          niveau: student.niveau || "",
+          telephone: student.telephone || "",
+          adresse: student.adresse || "",
+          bio: student.bio || "",
+          competences: Array.isArray(student.competences) ? student.competences.join(", ") : ""
+        });
+        
+        if (student.cvPath) {
+          setUploadedCv({
+            name: student.cvName || student.cvPath,
+            url: `http://localhost:5004/uploads/cvs/${student.cvPath}`
+          });
+        } else {
+          setUploadedCv(null);
+        }
+        
+        if (student.photoPath) {
+          setPhotoPreview(`http://localhost:5004/uploads/student-photos/${student.photoPath}`);
+        }
+        
+        if (student.favorites) {
+          const favs = {};
+          student.favorites.forEach(id => { favs[id] = true; });
+          setFavoris(favs);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement profil:', error);
+    }
+  }, []);
+
+  const fetchFavorites = useCallback(async () => {
+    if (!token) return;
+    try {
+      const response = await api.getFavorites(token);
+      const data = await response.json();
+      if (response.ok && data.favorites) {
+        const favs = {};
+        data.favorites.forEach(fav => {
+          favs[fav.offerId] = true;
+        });
+        setFavoris(favs);
+      }
+    } catch (error) {
+      console.error('Erreur chargement favoris:', error);
+    }
+  }, [token]);
+
+  const addToFavorites = useCallback(async (offerId) => {
+    if (!token) {
+      showNotification('error', "❌ Connectez-vous pour ajouter aux favoris");
+      return;
+    }
+    try {
+      const response = await api.addFavorite(token, offerId);
+      if (response.ok) {
+        setFavoris(prev => ({ ...prev, [offerId]: true }));
+        showNotification('success', "❤️ Ajouté aux favoris");
+      } else {
+        const data = await response.json();
+        showNotification('error', data.message || "❌ Erreur");
+      }
+    } catch (error) {
+      console.error('Erreur ajout favori:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, showNotification]);
+
+  const removeFromFavorites = useCallback(async (offerId) => {
+    if (!token) return;
+    try {
+      const response = await api.removeFavorite(token, offerId);
+      if (response.ok) {
+        setFavoris(prev => ({ ...prev, [offerId]: false }));
+        showNotification('success', "💔 Retiré des favoris");
+      } else {
+        const data = await response.json();
+        showNotification('error', data.message || "❌ Erreur");
+      }
+    } catch (error) {
+      console.error('Erreur suppression favori:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, showNotification]);
+
+  const toggleFavori = useCallback((offerId) => {
+    if (favoris[offerId]) {
+      removeFromFavorites(offerId);
+    } else {
+      addToFavorites(offerId);
+    }
+  }, [favoris, addToFavorites, removeFromFavorites]);
+
+  // Charger les évaluations de l'étudiant
+const fetchMesEvaluations = useCallback(async () => {
+  if (!token) return;
+  
+  setLoadingEvaluations(true);
+  try {
+    const response = await api.getMyEvaluations(token);
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+      setMesEvaluations(data.evaluations || []);
+    }
+  } catch (error) {
+    console.error('Erreur chargement évaluations:', error);
+  } finally {
+    setLoadingEvaluations(false);
+  }
+}, [token]);
+
+  const handleDeleteCV = useCallback(async () => {
+    if (!confirm("Voulez-vous vraiment supprimer votre CV ?")) return;
+    
+    if (token) {
+      try {
+        const response = await api.deleteCV(token);
+        const data = await response.json();
+        
+        if (response.ok) {
+          setUploadedCv(null);
+          showNotification('success', "✅ CV supprimé avec succès");
+          await fetchStudentProfile();
+        } else {
+          showNotification('error', data.message || "❌ Erreur lors de la suppression");
+        }
+      } catch (error) {
+        console.error('Erreur suppression:', error);
+        showNotification('error', "❌ Erreur de connexion");
+      }
+    }
+  }, [token, showNotification, fetchStudentProfile]);
+
+  const handleSaveProfil = useCallback(async () => {
+    const updatedData = {
+      nom: formData.nom,
+      prenom: formData.prenom,
+      email: formData.email,
+      matricule: formData.matricule,
+      filiere: formData.filiere,
+      universite: formData.universite,
+      niveau: formData.niveau,
+      telephone: formData.telephone,
+      adresse: formData.adresse,
+      bio: formData.bio,
+      competences: formData.competences.split(",").map(c => c.trim()).filter(c => c)
+    };
+    
+    if (token) {
+      try {
+        const response = await api.updateProfile(token, updatedData);
+        const data = await response.json();
+        if (response.ok) {
+          showNotification('success', "✅ Profil mis à jour");
+          setIsEditing(false);
+          await fetchStudentProfile();
+          if (onUpdateProfil) onUpdateProfil(updatedData);
+        } else {
+          showNotification('error', data.message || "Erreur lors de la mise à jour");
+        }
+      } catch (error) {
+        console.error(error);
+        showNotification('error', "Erreur de connexion");
+      }
+    } else {
+      showNotification('success', "✅ Profil mis à jour (mode démo)");
+      setIsEditing(false);
+      if (onUpdateProfil) onUpdateProfil(updatedData);
+    }
+  }, [formData, token, showNotification, onUpdateProfil, fetchStudentProfile]);
+
+  const handleCVUpload = useCallback(async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+      showNotification('error', "❌ Fichier trop volumineux (max 10MB)");
+      return;
+    }
+    
+    if (token) {
+      try {
+        const response = await api.uploadCV(token, file);
+        const data = await response.json();
+        
+        if (response.ok) {
+          await fetchStudentProfile();
+          showNotification('success', `✅ CV uploadé: ${file.name}`);
+        } else {
+          showNotification('error', data.message || "❌ Erreur upload");
+        }
+      } catch (error) {
+        console.error('Erreur:', error);
+        showNotification('error', "❌ Erreur de connexion");
+      }
+    }
+    
+    e.target.value = '';
+  }, [token, showNotification, fetchStudentProfile]);
+
   const getCurrentCv = useCallback(() => {
     const competencesArray = formData.competences 
       ? formData.competences.split(",").map(c => c.trim()).filter(c => c)
@@ -307,75 +515,295 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     };
   }, [formData, etudiant, experiences, formations, langues, centresInteret]);
 
-  // ============================================
-  // 3. showNotification
-  // ============================================
-  const showNotification = useCallback((type, message) => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
-  }, []);
-
-  // ============================================
-  // 4. FONCTIONS POUR GÉRER LES LISTES DU CV
-  // ============================================
+  // Gestion des listes du CV
   const addExperience = () => {
     if (newExperience.trim()) {
       setExperiences([...experiences, newExperience.trim()]);
       setNewExperience("");
-      showNotification('success', "✅ Expérience ajoutée");
     }
   };
 
   const removeExperience = (index) => {
     setExperiences(experiences.filter((_, i) => i !== index));
-    showNotification('success', "❌ Expérience supprimée");
   };
 
   const addFormation = () => {
     if (newFormation.trim()) {
       setFormations([...formations, newFormation.trim()]);
       setNewFormation("");
-      showNotification('success', "✅ Formation ajoutée");
     }
   };
 
   const removeFormation = (index) => {
     setFormations(formations.filter((_, i) => i !== index));
-    showNotification('success', "❌ Formation supprimée");
   };
 
   const addLangue = () => {
     if (newLangue.trim()) {
       setLangues([...langues, newLangue.trim()]);
       setNewLangue("");
-      showNotification('success', "✅ Langue ajoutée");
     }
   };
 
   const removeLangue = (index) => {
     setLangues(langues.filter((_, i) => i !== index));
-    showNotification('success', "❌ Langue supprimée");
   };
 
   const addCentreInteret = () => {
     if (newCentreInteret.trim()) {
       setCentresInteret([...centresInteret, newCentreInteret.trim()]);
       setNewCentreInteret("");
-      showNotification('success', "✅ Centre d'intérêt ajouté");
     }
   };
 
   const removeCentreInteret = (index) => {
     setCentresInteret(centresInteret.filter((_, i) => i !== index));
-    showNotification('success', "❌ Centre d'intérêt supprimé");
   };
 
-  // ============================================
-  // 5. FILTRAGE DES OFFRES
-  // ============================================
+  const handleGenerateCVFromProfile = useCallback(async () => {
+    const cv = getCurrentCv();
+    try {
+      const response = await api.generateCV(token, {
+        nom: cv.nom,
+        prenom: cv.prenom,
+        email: cv.email,
+        telephone: cv.telephone,
+        adresse: cv.adresse,
+        universite: cv.universite,
+        filiere: cv.filiere,
+        niveau: cv.niveau,
+        competences: cv.competences,
+        experiences: experiences,
+        formations: formations,
+        langues: langues,
+        centresInteret: centresInteret
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `CV_${cv.nom}_${cv.prenom}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        showNotification('success', "✅ CV généré avec succès");
+        setIsCvEditing(false);
+      } else {
+        const error = await response.json();
+        showNotification('error', error.message || "❌ Erreur lors de la génération");
+      }
+    } catch (error) {
+      console.error('Erreur génération:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, getCurrentCv, experiences, formations, langues, centresInteret, showNotification]);
+
+  const handleDownloadCV = useCallback(async () => {
+    if (!token) {
+      showNotification('error', "❌ Vous n'êtes pas connecté");
+      return;
+    }
+    
+    try {
+      const response = await api.downloadCV(token);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `CV_${formData.nom || 'etudiant'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        showNotification('success', "✅ CV téléchargé avec succès");
+      } else {
+        const error = await response.json();
+        showNotification('error', error.message || "❌ Aucun CV trouvé");
+      }
+    } catch (error) {
+      console.error('Erreur téléchargement:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, formData.nom, showNotification]);
+
+  const handlePostuler = useCallback((offre) => {
+    setSelectedOffre(offre);
+    setShowCvModal(true);
+  }, []);
+
+  const handleConfirmPostuler = useCallback(async () => {
+    if (!selectedOffre) return;
+    
+    if (token) {
+      try {
+        const response = await api.applyToOffer(selectedOffre.id, token, "Candidature envoyée");
+        const data = await response.json();
+        if (response.ok) {
+          showNotification('success', `✅ Candidature envoyée pour ${selectedOffre.titre}`);
+          const refreshResponse = await api.getMyApplications(token);
+          const refreshData = await refreshResponse.json();
+          if (refreshResponse.ok) {
+            setCandidatures(refreshData.applications || []);
+          }
+        } else {
+          showNotification('error', data.message || "❌ Erreur lors de l'envoi");
+        }
+      } catch (error) {
+        console.error('Erreur candidature:', error);
+        showNotification('error', "❌ Erreur de connexion");
+      }
+    } else {
+      showNotification('success', `✅ Candidature envoyée pour ${selectedOffre.titre} (mode démo)`);
+    }
+    
+    setShowCvModal(false);
+    setSelectedOffre(null);
+    setUploadedCv(null);
+  }, [selectedOffre, token, showNotification]);
+
+  
+// Ouvrir la modale de confirmation avant suppression
+const openDeleteConfirmation = useCallback((candidature) => {
+  setCandidatureToDelete(candidature);
+  setShowConfirmDeleteModal(true);
+}, []);
+
+// Fonction pour supprimer après confirmation
+const handleDeleteCandidature = useCallback(async () => {
+  if (!candidatureToDelete) return;
+  
+  if (token) {
+    try {
+      const response = await api.deleteApplication(token, candidatureToDelete.id);
+      
+      if (response.ok) {
+        setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
+        showNotification('success', `🗑️ Candidature supprimée avec succès`);
+      } else {
+        const data = await response.json();
+        showNotification('error', data.message || "❌ Erreur lors de la suppression");
+      }
+    } catch (error) {
+      console.error('Erreur suppression candidature:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  } else {
+    setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
+    showNotification('success', `🗑️ Candidature supprimée (mode démo)`);
+  }
+  
+  // Fermer la modale et nettoyer
+  setShowConfirmDeleteModal(false);
+  setCandidatureToDelete(null);
+}, [token, candidatureToDelete, showNotification]);
+
+  const handlePhotoUpload = useCallback(async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      showNotification('error', "❌ Format non supporté (image seulement)");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('error', "❌ Image trop volumineuse (max 5MB)");
+      return;
+    }
+    
+    const cleanName = file.name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9.]/g, '_');
+    
+    const cleanedFile = new File([file], cleanName, { type: file.type });
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result);
+    };
+    reader.readAsDataURL(cleanedFile);
+    
+    if (token) {
+      try {
+        const response = await api.uploadStudentPhoto(token, cleanedFile);
+        
+        if (response.ok) {
+          const data = await response.json();
+          showNotification('success', "✅ Photo de profil mise à jour");
+          if (data.photoUrl) {
+            const fullUrl = data.photoUrl;
+            setPhotoPreview(fullUrl);
+            localStorage.setItem('studentPhoto', fullUrl);
+          }
+        } else {
+          const error = await response.json();
+          showNotification('error', error.message || "Erreur lors de l'upload");
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        showNotification('error', "❌ Erreur de connexion");
+      }
+    }
+  }, [token, showNotification]);
+
+  const handleInputChange = useCallback((e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
+
+  const handlePasswordChange = useCallback((e) => {
+    setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
+  }, []);
+
+  const handleSubmitPasswordChange = useCallback(async () => {
+    const errors = {};
+    if (!passwordData.ancienMotDePasse) errors.ancienMotDePasse = "Champ requis";
+    if (!passwordData.nouveauMotDePasse) errors.nouveauMotDePasse = "Champ requis";
+    else if (passwordData.nouveauMotDePasse.length < 6) errors.nouveauMotDePasse = "Minimum 6 caractères";
+    if (passwordData.nouveauMotDePasse !== passwordData.confirmerMotDePasse) errors.confirmerMotDePasse = "Les mots de passe ne correspondent pas";
+    
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+    
+    if (token) {
+      try {
+        const response = await api.changePassword(token, {
+          ancienMotDePasse: passwordData.ancienMotDePasse,
+          nouveauMotDePasse: passwordData.nouveauMotDePasse
+        });
+        const data = await response.json();
+        if (response.ok) {
+          showNotification('success', "✅ Mot de passe changé");
+          setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
+          if (onChangePassword) onChangePassword(passwordData.nouveauMotDePasse);
+        } else {
+          showNotification('error', data.message || "Erreur lors du changement");
+        }
+      } catch (error) {
+        console.error(error);
+        showNotification('error', "Erreur de connexion");
+      }
+    } else {
+      if (passwordData.ancienMotDePasse !== "123456") {
+        showNotification('error', "❌ Ancien mot de passe incorrect");
+        return;
+      }
+      showNotification('success', "✅ Mot de passe changé (mode démo)");
+      setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
+      if (onChangePassword) onChangePassword(passwordData.nouveauMotDePasse);
+    }
+  }, [passwordData, token, showNotification, onChangePassword]);
+
+  // Filtrage des offres
   const offresDisponibles = useMemo(() => {
-    const offresData = offres || offersData;
-    return offresData.filter(o => o.statut !== 'inactive');
+    return offres.length > 0 ? offres : fallbackOffers;
   }, [offres]);
 
   const offresFiltrees = useMemo(() => {
@@ -384,46 +812,39 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
 
     return data.filter(offre => {
       const matchSearch = !filters.search || 
-                         offre.titre?.toLowerCase().includes(filters.search.toLowerCase()) ||
-                         offre.entreprise?.toLowerCase().includes(filters.search.toLowerCase()) ||
-                         offre.description?.toLowerCase().includes(filters.search.toLowerCase()) ||
-                         offre.competences?.some(c => c.toLowerCase().includes(filters.search.toLowerCase()));
+        offre.titre?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        offre.entreprise?.toLowerCase().includes(filters.search.toLowerCase()) ||
+        offre.description?.toLowerCase().includes(filters.search.toLowerCase());
       
       const matchType = !filters.type || 
-                        offre.type?.toLowerCase().includes(filters.type.toLowerCase());
+        offre.type?.toLowerCase().includes(filters.type.toLowerCase());
       
       const matchVille = !filters.ville || 
-                         offre.lieu?.toLowerCase().includes(filters.ville.toLowerCase());
+        offre.lieu?.toLowerCase().includes(filters.ville.toLowerCase());
       
       const matchDuree = !filters.duree || 
-                         offre.duree?.toLowerCase().includes(filters.duree.toLowerCase());
+        offre.duree?.toLowerCase().includes(filters.duree.toLowerCase());
       
       let matchSalaire = true;
       const salaireOffre = offre.salaire || '';
       const montantOffre = parseInt(salaireOffre.replace(/[^0-9]/g, ''));
       
       if (!isNaN(montantOffre)) {
-        if (filters.salaireMin) {
+        if (filters.salaireMin && filters.salaireMin !== '0') {
           const salaireMin = parseInt(filters.salaireMin);
           if (!isNaN(salaireMin) && montantOffre < salaireMin) matchSalaire = false;
         }
-        if (filters.salaireMax && matchSalaire) {
+        if (filters.salaireMax && filters.salaireMax !== '0' && matchSalaire) {
           const salaireMax = parseInt(filters.salaireMax);
           if (!isNaN(salaireMax) && montantOffre > salaireMax) matchSalaire = false;
         }
-      } else {
-        if (filters.salaireMin && filters.salaireMin !== '0') matchSalaire = false;
       }
       
       return matchSearch && matchType && matchVille && matchDuree && matchSalaire;
     });
   }, [offresDisponibles, filters]);
 
-  // ============================================
-  // 6. AUTRES useMemo
-  // ============================================
-  const mesCandidatures = useMemo(() => candidatures?.filter(c => c.etudiantId === etudiant?.id) || [], [candidatures, etudiant?.id]);
-  const offresFavoris = useMemo(() => offresDisponibles?.filter(o => favoris[o.id]) || [], [offresDisponibles, favoris]);
+  const offresFavoris = useMemo(() => offresDisponibles.filter(o => favoris[o.id]), [offresDisponibles, favoris]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -431,14 +852,12 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     if (filters.type) count++;
     if (filters.ville) count++;
     if (filters.duree) count++;
-    if (filters.salaireMin) count++;
-    if (filters.salaireMax) count++;
+    if (filters.salaireMin && filters.salaireMin !== '0') count++;
+    if (filters.salaireMax && filters.salaireMax !== '0') count++;
     return count;
   }, [filters]);
 
-  // ============================================
-  // 7. GESTION DES FILTRES
-  // ============================================
+  // Gestion des filtres
   const openFilterModal = () => {
     setTempFilters({
       type: filters.type,
@@ -460,370 +879,101 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
       salaireMax: tempFilters.salaireMax
     });
     setShowFilterModal(false);
-    showNotification('success', "Filtres appliqués");
+    showNotification('success', "✅ Filtres appliqués");
   };
 
   const resetFilters = () => {
-    setFilters({ search: '', type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' });
-    setTempFilters({ type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' });
-    showNotification('success', "Filtres réinitialisés");
+    setFilters({ 
+      search: '', 
+      type: '', 
+      ville: '', 
+      duree: '', 
+      salaireMin: '', 
+      salaireMax: '' 
+    });
+    setTempFilters({ 
+      type: '', 
+      ville: '', 
+      duree: '', 
+      salaireMin: '', 
+      salaireMax: '' 
+    });
+    showNotification('success', "✅ Filtres réinitialisés");
   };
 
   // ============================================
-  // 8. GESTION DES FAVORIS
+  // USEEFFECT
   // ============================================
-  const toggleFavori = useCallback((offreId) => {
-    setFavoris(prev => ({ ...prev, [offreId]: !prev[offreId] }));
-    showNotification('success', !favoris[offreId] ? "❤️ Ajouté aux favoris" : "💔 Retiré des favoris");
-  }, [favoris, showNotification]);
-
-  // ============================================
-  // 9. GESTION DE LA CANDIDATURE
-  // ============================================
-  const handlePostuler = useCallback((offre) => {
-    setSelectedOffre(offre);
-    setShowCvModal(true);
-  }, []);
-
-  const handleConfirmPostuler = useCallback(() => {
-    const currentCvData = getCurrentCv();
-    
-    // Vérifier si le CV est disponible (uploadé OU généré avec au moins nom/prenom)
-    const hasValidCv = uploadedCv || (currentCvData.nom && currentCvData.prenom);
-    
-    if (!hasValidCv) {
-      showNotification('error', "❌ Veuillez compléter votre profil ou télécharger un CV");
-      return;
-    }
-    
-    const cvToSend = uploadedCv || { type: 'generated', data: currentCvData };
-    if (onPostuler) {
-      onPostuler(selectedOffre, cvToSend);
-    }
-    setShowCvModal(false);
-    setSelectedOffre(null);
-    showNotification('success', `✅ Candidature envoyée pour ${selectedOffre?.titre}`);
-  }, [uploadedCv, getCurrentCv, onPostuler, selectedOffre, showNotification]);
-
-  // ============================================
-  // 10. GESTION DU CV (Upload, Download)
-  // ============================================
-  const handleCVUpload = useCallback((e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-    if (!allowedTypes.includes(file.type)) {
-      showNotification('error', "❌ Format non supporté (PDF, DOC, DOCX, TXT)");
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      showNotification('error', "❌ Fichier trop volumineux (max 10MB)");
-      return;
-    }
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setUploadedCv({ name: file.name, content: event.target.result, type: file.type, dateCreation: new Date().toLocaleDateString('fr-FR') });
-      setCvName(file.name);
-      showNotification('success', `✅ CV "${file.name}" téléchargé`);
+  useEffect(() => {
+    const fetchOffers = async () => {
+      try {
+        const response = await api.getOffres();
+        const data = await response.json();
+        
+        if (response.ok) {
+          if (data.offers && Array.isArray(data.offers)) {
+            setOffres(data.offers);
+          } else if (data.offres && Array.isArray(data.offres)) {
+            setOffres(data.offres);
+          } else {
+            setOffres(fallbackOffers);
+          }
+        } else {
+          setOffres(fallbackOffers);
+        }
+      } catch (error) {
+        console.error('Erreur chargement offres:', error);
+        setOffres(fallbackOffers);
+      } finally {
+        setLoading(false);
+      }
     };
-    reader.readAsDataURL(file);
-  }, [showNotification]);
-
-  const handleGenerateCVFromProfile = useCallback(() => {
-    showNotification('success', "✅ CV généré à partir de vos informations personnelles");
-    setIsCvEditing(false);
-  }, [showNotification]);
-
-  // Téléchargement du CV en PDF
-  const handleDownloadCV = useCallback(() => {
-    const cv = getCurrentCv();
-    const doc = new jsPDF();
     
-    let yPos = 25;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const marginX = 20;
-    
-    // Titre
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("CURRICULUM VITAE", pageWidth / 2, yPos, { align: "center" });
-    
-    yPos += 10;
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(51, 65, 85);
-    doc.text(`${cv.nom} ${cv.prenom}`, pageWidth / 2, yPos, { align: "center" });
-    
-    yPos += 8;
-    doc.setDrawColor(16, 185, 129);
-    doc.line(marginX, yPos, pageWidth - marginX, yPos);
-    
-    // Contact
-    yPos += 10;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("CONTACT", marginX, yPos);
-    
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
-    doc.text(`Email : ${cv.email}`, marginX + 5, yPos);
-    yPos += 5;
-    doc.text(`Téléphone : ${cv.telephone || 'Non renseigné'}`, marginX + 5, yPos);
-    yPos += 5;
-    doc.text(`Adresse : ${cv.adresse || 'Non renseignée'}`, marginX + 5, yPos);
-    
-    // Formation
-    yPos += 12;
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("FORMATION", marginX, yPos);
-    
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
-    doc.text(`Université : ${cv.universite || 'Non renseignée'}`, marginX + 5, yPos);
-    yPos += 5;
-    doc.text(`Filière : ${cv.filiere || 'Non renseignée'}`, marginX + 5, yPos);
-    yPos += 5;
-    doc.text(`Niveau : ${cv.niveau || 'Non renseigné'}`, marginX + 5, yPos);
-    
-    // Compétences
-    yPos += 12;
-    if (yPos > 250) { doc.addPage(); yPos = 25; }
-    
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(16, 185, 129);
-    doc.text("COMPETENCES", marginX, yPos);
-    
-    yPos += 6;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(75, 85, 99);
-    
-    if (cv.competences.length > 0) {
-      let ligneCompetence = "";
-      cv.competences.forEach((comp, index) => {
-        ligneCompetence += comp;
-        if (index < cv.competences.length - 1) ligneCompetence += "  |  ";
-      });
-      const lignes = doc.splitTextToSize(ligneCompetence, pageWidth - marginX - 10);
-      doc.text(lignes, marginX + 5, yPos);
-      yPos += (lignes.length * 5) + 5;
-    } else {
-      doc.text("Aucune compétence renseignée", marginX + 5, yPos);
-      yPos += 8;
-    }
-    
-    // Expériences
-    if (cv.experiences && cv.experiences.length > 0) {
-      yPos += 8;
-      if (yPos > 250) { doc.addPage(); yPos = 25; }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(16, 185, 129);
-      doc.text("EXPERIENCES PROFESSIONNELLES", marginX, yPos);
-      
-      yPos += 6;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      
-      cv.experiences.forEach((exp) => {
-        if (yPos > 260) { doc.addPage(); yPos = 25; }
-        doc.text("- " + exp, marginX + 5, yPos);
-        yPos += 6;
-      });
-      yPos += 4;
-    }
-    
-    // Formations complémentaires
-    if (cv.formations && cv.formations.length > 0) {
-      yPos += 8;
-      if (yPos > 250) { doc.addPage(); yPos = 25; }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(16, 185, 129);
-      doc.text("FORMATIONS COMPLEMENTAIRES", marginX, yPos);
-      
-      yPos += 6;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      
-      cv.formations.forEach((formation) => {
-        if (yPos > 260) { doc.addPage(); yPos = 25; }
-        doc.text("- " + formation, marginX + 5, yPos);
-        yPos += 6;
-      });
-      yPos += 4;
-    }
-    
-    // Langues
-    if (cv.langues && cv.langues.length > 0) {
-      yPos += 8;
-      if (yPos > 250) { doc.addPage(); yPos = 25; }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(16, 185, 129);
-      doc.text("LANGUES", marginX, yPos);
-      
-      yPos += 6;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      
-      let ligneLangues = "";
-      cv.langues.forEach((langue, index) => {
-        ligneLangues += langue;
-        if (index < cv.langues.length - 1) ligneLangues += "  |  ";
-      });
-      doc.text(ligneLangues, marginX + 5, yPos);
-      yPos += 8;
-    }
-    
-    // Centres d'intérêt
-    if (cv.centresInteret && cv.centresInteret.length > 0) {
-      yPos += 8;
-      if (yPos > 250) { doc.addPage(); yPos = 25; }
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(16, 185, 129);
-      doc.text("CENTRES D'INTERET", marginX, yPos);
-      
-      yPos += 6;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(75, 85, 99);
-      
-      let ligneCentres = "";
-      cv.centresInteret.forEach((centre, index) => {
-        ligneCentres += centre;
-        if (index < cv.centresInteret.length - 1) ligneCentres += "  |  ";
-      });
-      doc.text(ligneCentres, marginX + 5, yPos);
-      yPos += 8;
-    }
-    
-    // Pied de page
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "italic");
-    doc.setTextColor(156, 163, 175);
-    doc.text(
-      `Créé le ${new Date().toLocaleDateString('fr-FR')} via Stag.io`,
-      pageWidth / 2,
-      doc.internal.pageSize.getHeight() - 10,
-      { align: "center" }
-    );
-    
-    doc.save(`CV_${cv.nom}_${cv.prenom}.pdf`);
-    showNotification('success', "✅ CV PDF téléchargé");
-  }, [getCurrentCv, showNotification]);
-
-  // ============================================
-  // 11. GESTION DU PROFIL
-  // ============================================
-  const handleInputChange = useCallback((e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  }, []);
-
-  const handleSaveProfil = useCallback(() => {
-    const updatedEtudiant = {
-      ...etudiant, ...formData,
-      competences: formData.competences.split(",").map(c => c.trim()).filter(c => c),
-      profilePhoto: photoPreview, 
-      cvName: cvName,
-      experiences: experiences,
-      formations: formations,
-      langues: langues,
-      centresInteret: centresInteret
+    const fetchCandidatures = async () => {
+      if (!token) return;
+      try {
+        const response = await api.getMyApplications(token);
+        const data = await response.json();
+        if (response.ok) {
+          setCandidatures(data.applications || []);
+        }
+      } catch (error) {
+        console.error('Erreur chargement candidatures:', error);
+      }
     };
-    if (onUpdateProfil) {
-      onUpdateProfil(updatedEtudiant);
-    }
-    setIsEditing(false);
-    showNotification('success', "✅ Profil mis à jour");
-  }, [etudiant, formData, photoPreview, cvName, experiences, formations, langues, centresInteret, onUpdateProfil, showNotification]);
-
-  const handlePhotoUpload = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
-      showNotification('success', "✅ Photo mise à jour");
-    } else {
-      showNotification('error', "❌ Image invalide ou trop volumineuse (max 5MB)");
-    }
-  }, [showNotification]);
-
-  // ============================================
-  // 12. GESTION DU MOT DE PASSE
-  // ============================================
-  const handlePasswordChange = useCallback((e) => {
-    setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
-  }, []);
-
-  const handleSubmitPasswordChange = useCallback(() => {
-    const errors = {};
-    if (!passwordData.ancienMotDePasse) errors.ancienMotDePasse = "Champ requis";
-    if (!passwordData.nouveauMotDePasse) errors.nouveauMotDePasse = "Champ requis";
-    else if (passwordData.nouveauMotDePasse.length < 6) errors.nouveauMotDePasse = "Minimum 6 caractères";
-    if (passwordData.nouveauMotDePasse !== passwordData.confirmerMotDePasse) errors.confirmerMotDePasse = "Les mots de passe ne correspondent pas";
     
-    if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors);
-      return;
-    }
-    
-    if (passwordData.ancienMotDePasse !== etudiant?.password) {
-      showNotification('error', "❌ Ancien mot de passe incorrect");
-      return;
-    }
-    
-    if (onChangePassword) {
-      onChangePassword(etudiant?.id, passwordData.nouveauMotDePasse);
-    }
-    setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
-    showNotification('success', "✅ Mot de passe changé");
-  }, [passwordData, etudiant, onChangePassword, showNotification]);
+    fetchOffers();
+    fetchCandidatures();
+    fetchStudentProfile();
+    fetchFavorites();
+    fetchMesEvaluations();
+  }, [token, fetchStudentProfile, fetchFavorites,fetchMesEvaluations]);
 
-  // ============================================
-  // 13. MENU ITEMS
-  // ============================================
+  // Menu items
   const menuItems = [
     { id: "profil", label: "Mon profil", icon: <User size={18} /> },
     { id: "offres", label: "Liste des offres", icon: <Briefcase size={18} /> },
     { id: "mesCandidatures", label: "Mes candidatures", icon: <Send size={18} /> },
-    { id: "mesStages", label: "Mes stages", icon: <Calendar size={18} /> },
     { id: "favoris", label: "Mes favoris", icon: <Heart size={18} /> },
-    { id: "evaluations", label: "Mes évaluations", icon: <Star size={18} /> },
+{ id: "mesEvaluations", label: "Mes évaluations", icon: <Star size={18} /> },
     { id: "changePassword", label: "Changer mot de passe", icon: <Key size={18} /> },
-    { id: "aide", label: "Conditions & Aide", icon: <FileText size={18} /> },
+     { id: "aide", label: "Conditions & Aide", icon: <HelpCircle size={18} /> },
   ];
 
   const getMenuTitle = (id) => {
-    const titles = { profil: 'Mon Profil', offres: 'Offres de Stage', mesCandidatures: 'Mes Candidatures', mesStages: 'Mes Stages', favoris: 'Mes Favoris', evaluations: 'Mes Évaluations', changePassword: 'Changer le Mot de Passe', aide: 'Centre d\'Aide' };
+    const titles = { 
+      profil: 'Mon Profil', 
+      offres: 'Offres de Stage', 
+      mesCandidatures: 'Mes Candidatures', 
+      favoris: 'Mes Favoris', 
+      mesEvaluations: 'Mes Évaluations',
+      changePassword: 'Changer le Mot de Passe',
+      aide:'Conditions & Aide'
+    };
     return titles[id] || 'Dashboard';
   };
 
-  // ============================================
-  // 14. VÉRIFICATION QUE ETUDIANT EXISTE
-  // ============================================
-  if (!etudiant) {
+  if (loading && offres.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: theme.bg }}>
         <div className="text-center">
@@ -834,9 +984,6 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
     );
   }
 
-  // ============================================
-  // 15. RENDU PRINCIPAL
-  // ============================================
   return (
     <div className="flex min-h-screen fade-in font-sans" style={{ backgroundColor: theme.bg, color: theme.text }}>
       
@@ -856,140 +1003,138 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
           <div className="rounded-2xl max-w-md w-full shadow-2xl" style={{ backgroundColor: theme.card }}>
             <div className="border-b px-6 py-4 flex justify-between items-center" style={{ borderColor: theme.border }}>
               <h3 className="text-xl font-bold flex items-center gap-2" style={{ color: theme.text }}>
-                <Filter size={20} /> Filtres de recherche
+                <Filter size={20} className="text-emerald-500" />
+                Filtres de recherche
               </h3>
               <button onClick={() => setShowFilterModal(false)} className="p-2 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700">
                 <X size={20} style={{ color: theme.text }} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            
+            <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Type de stage</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <Briefcase size={16} className="text-emerald-500" />
+                  Type de stage
+                </label>
+                <select
                   value={tempFilters.type}
                   onChange={(e) => setTempFilters(prev => ({ ...prev, type: e.target.value }))}
-                  placeholder="Stage PFE, Stage, Alternance..."
                   className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                   style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
-                />
+                >
+                  <option value="">Tous les types</option>
+                  <option value="PFE">Stage PFE</option>
+                  <option value="Stage">Stage classique</option>
+                  <option value="Alternance">Alternance</option>
+                </select>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Wilaya</label>
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <MapPin size={16} className="text-emerald-500" />
+                  Wilaya
+                </label>
                 <AutocompleteWilaya
                   value={tempFilters.ville}
                   onChange={(value) => setTempFilters(prev => ({ ...prev, ville: value }))}
-                  placeholder="Tapez le nom d'une wilaya..."
+                  placeholder="Sélectionnez une wilaya..."
                   darkMode={darkMode}
                 />
-                <p className="text-xs mt-1" style={{ color: theme.textLight }}>💡 Tapez "A" pour voir Alger, Adrar, Annaba...</p>
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Durée</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <Clock size={16} className="text-emerald-500" />
+                  Durée du stage
+                </label>
+                <select
                   value={tempFilters.duree}
                   onChange={(e) => setTempFilters(prev => ({ ...prev, duree: e.target.value }))}
-                  placeholder="3 mois, 6 mois, 1 an..."
                   className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                   style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
-                />
+                >
+                  <option value="">Toutes durées</option>
+                  <option value="1-3 mois">1 - 3 mois</option>
+                  <option value="3-6 mois">3 - 6 mois</option>
+                  <option value="6-12 mois">6 - 12 mois</option>
+                  <option value="12+ mois">Plus de 12 mois</option>
+                </select>
               </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Salaire Min (DA)</label>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <DollarSign size={16} className="text-emerald-500" />
+                  Salaire (DA)
+                </label>
+                <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
                     value={tempFilters.salaireMin}
                     onChange={(e) => setTempFilters(prev => ({ ...prev, salaireMin: e.target.value }))}
-                    placeholder="Ex: 30000"
+                    placeholder="Minimum"
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                     style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Salaire Max (DA)</label>
                   <input
                     type="number"
                     value={tempFilters.salaireMax}
                     onChange={(e) => setTempFilters(prev => ({ ...prev, salaireMax: e.target.value }))}
-                    placeholder="Ex: 100000"
+                    placeholder="Maximum"
                     className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
                     style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
                   />
                 </div>
               </div>
-              
-              <p className="text-xs p-2 rounded-lg" style={{ color: theme.textLight, backgroundColor: theme.cardAlt }}>
-                💡 Laisse vide pour ne pas filtrer
-              </p>
             </div>
+            
             <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
-              <button onClick={applyFilters} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">
-                Appliquer les filtres
+              <button onClick={applyFilters} className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600 transition flex items-center justify-center gap-2">
+                <CheckCircle size={18} /> Appliquer
               </button>
-              <button onClick={() => { setTempFilters({ type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' }); }} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
-                Effacer
+              <button 
+                onClick={() => setTempFilters({ type: '', ville: '', duree: '', salaireMin: '', salaireMax: '' })} 
+                className="flex-1 py-3 rounded-xl font-semibold transition hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-2"
+                style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+              >
+                <X size={18} /> Effacer
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL CV POUR POSTULATION */}
+      {/* MODAL CV */}
       {showCvModal && selectedOffre && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: theme.card }}>
-            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-              <h3 className="text-xl font-bold" style={{ color: theme.text }}>Postuler pour : {selectedOffre.titre}</h3>
-              <button onClick={() => setShowCvModal(false)} className="p-2 rounded-xl transition hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button>
+          <div className="rounded-2xl max-w-md w-full shadow-2xl" style={{ backgroundColor: theme.card }}>
+            <div className="p-6 border-b flex justify-between items-center" style={{ borderColor: theme.border }}>
+              <h3 className="text-lg font-bold" style={{ color: theme.text }}>Postuler: {selectedOffre.titre}</h3>
+              <button onClick={() => { setShowCvModal(false); setSelectedOffre(null); setUploadedCv(null); }} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                <X size={20} />
+              </button>
             </div>
             <div className="p-6">
-              <div className="mb-6 p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <p className="text-sm leading-relaxed" style={{ color: theme.text }}>{selectedOffre.description || "Aucune description disponible"}</p>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">{selectedOffre.type}</span>
-                  <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">{selectedOffre.lieu}</span>
-                  <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full">{selectedOffre.duree}</span>
-                  <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">{selectedOffre.salaire}</span>
-                </div>
+              <div className="border-2 border-dashed rounded-xl p-4 text-center">
+                <Upload size={40} className="mx-auto mb-2" style={{ color: theme.textLight }} />
+                <label className="bg-emerald-500 text-white px-4 py-2 rounded-lg cursor-pointer inline-block hover:bg-emerald-600 transition">
+                  Choisir un CV
+                  <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleCVUpload} />
+                </label>
+                {uploadedCv && <p className="mt-2 text-sm">📄 {uploadedCv.name}</p>}
               </div>
-              
-              <div className="space-y-4">
-                <div className="border-2 border-dashed rounded-xl p-5 text-center hover:border-emerald-400 transition" style={{ borderColor: theme.border }}>
-                  <Upload size={40} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-                  <p className="text-sm mb-2" style={{ color: theme.text }}>Télécharger un CV existant</p>
-                  <label className="bg-gray-700 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-800 inline-flex items-center gap-2 text-sm">
-                    <Upload size={16} /> Choisir un fichier
-                    <input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleCVUpload} />
-                  </label>
-                  {uploadedCv && <div className="mt-3 p-2 rounded-lg text-sm flex items-center justify-between" style={{ backgroundColor: theme.cardAlt }}><span style={{ color: theme.text }}>📄 {uploadedCv.name}</span><CheckCircle size={16} className="text-emerald-500" /></div>}
-                </div>
-                
-                <div className="text-center text-xs" style={{ color: theme.textLight }}>OU</div>
-                
-                <div className="rounded-xl p-5" style={{ backgroundColor: theme.cardAlt }}>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><FileText size={18} className="text-emerald-500" /> Utiliser mon CV du profil</h4>
-                  <div className="rounded-lg p-3 mb-3 text-sm" style={{ backgroundColor: theme.card }}>
-                    <p className="font-medium" style={{ color: theme.text }}>{getCurrentCv().nom} {getCurrentCv().prenom}</p>
-                    <p className="text-xs" style={{ color: theme.textLight }}>{getCurrentCv().email}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {getCurrentCv().competences.slice(0, 3).map((s, i) => <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}
-                      {getCurrentCv().competences.length > 3 && <span className="text-xs" style={{ color: theme.textLight }}>+{getCurrentCv().competences.length - 3}</span>}
-                    </div>
-                  </div>
-                  <button onClick={handleGenerateCVFromProfile} className="w-full bg-emerald-500 text-white py-2 rounded-lg text-sm hover:bg-emerald-600 flex items-center justify-center gap-2">
-                    <FilePlus size={14} /> Utiliser ce CV
-                  </button>
-                </div>
-              </div>
+              <div className="text-center my-3 text-xs" style={{ color: theme.textLight }}>OU</div>
+              <button onClick={handleGenerateCVFromProfile} className="w-full bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition">
+                Utiliser mon CV du profil
+              </button>
             </div>
-            <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
-              <button onClick={handleConfirmPostuler} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Confirmer la candidature</button>
-              <button onClick={() => setShowCvModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
+            <div className="p-6 flex gap-3 border-t" style={{ borderColor: theme.border }}>
+              <button onClick={handleConfirmPostuler} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl hover:bg-emerald-600 transition">
+                Confirmer
+              </button>
+              <button onClick={() => { setShowCvModal(false); setSelectedOffre(null); setUploadedCv(null); }} className="flex-1 py-2 rounded-xl transition" style={{ backgroundColor: theme.cardAlt }}>
+                Annuler
+              </button>
             </div>
           </div>
         </div>
@@ -999,211 +1144,236 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
       <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
         <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg ring-2 ring-white/10">
-              <span className="text-xl font-bold text-white">
-                {((formData.prenom || etudiant.prenom)?.charAt(0) || '')}{((formData.nom || etudiant.nom)?.charAt(0) || 'É')}
-              </span>
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg overflow-hidden">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xl font-bold text-white">
+                    {(formData.prenom?.charAt(0) || 'U')}{(formData.nom?.charAt(0) || '')}
+                  </span>
+                )}
+              </div>
+              <label className="absolute bottom-0 right-0 bg-emerald-500 p-1.5 rounded-full cursor-pointer hover:bg-emerald-600 transition-colors shadow-md">
+                <Camera size={12} className="text-white" />
+                <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+              </label>
             </div>
           </div>
-          
           <div className="text-center">
-            <p className="text-sm font-semibold text-white">
-              {(formData.prenom || etudiant.prenom)} {(formData.nom || etudiant.nom)}
-            </p>
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
-              <p className="text-emerald-400 text-xs font-medium">{formData.filiere || etudiant.filiere}</p>
-              <div className="w-1 h-1 bg-emerald-400 rounded-full"></div>
-            </div>
+            <p className="text-white font-semibold">{formData.prenom} {formData.nom}</p>
+            <p className="text-emerald-400 text-xs">{formData.filiere}</p>
           </div>
         </div>
-        
-        <nav className="p-4 space-y-1">
+        <nav className="p-4">
           {menuItems.map(item => (
             <button 
               key={item.id} 
               onClick={() => setActiveMenu(item.id)} 
-              className={`
-                w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
-                ${activeMenu === item.id 
-                  ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
-                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
-                }
-              `}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg mb-1 transition ${activeMenu === item.id ? "bg-gray-800 text-white" : "text-gray-400 hover:bg-gray-800/50"}`}
             >
-              <div className={`transition-transform duration-200 group-hover:scale-105 ${activeMenu === item.id ? "text-emerald-400" : ""}`}>
-                {item.icon}
-              </div>
-              <span className="text-sm font-medium">{item.label}</span>
-              {activeMenu === item.id && (
-                <div className="ml-auto w-1 h-4 bg-emerald-400 rounded-full"></div>
-              )}
+              {item.icon}
+              <span className="text-sm">{item.label}</span>
             </button>
           ))}
-          
-          <div className="h-px bg-gray-700 my-3"></div>
-          
-          <button 
-            onClick={onLogout} 
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 group"
-          >
-            <LogOut size={18} className="group-hover:scale-105 transition-transform" />
-            <span className="text-sm font-medium">Déconnexion</span>
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 mt-3 transition">
+            <LogOut size={18} />
+            <span className="text-sm">Déconnexion</span>
           </button>
         </nav>
       </div>
-      
+
       {/* CONTENU PRINCIPAL */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="shadow-sm px-6 py-4 flex justify-between items-center sticky top-0 z-10" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
+      <div className="flex-1 flex flex-col">
+        <div className="shadow-sm px-6 py-4 sticky top-0 z-10" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
           <h2 className="text-xl font-bold" style={{ color: theme.text }}>{getMenuTitle(activeMenu)}</h2>
-          <div className="flex items-center gap-3">
-            {photoPreview ? <img src={photoPreview} alt="Profile" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-400" /> : <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: theme.cardAlt }}><User size={18} style={{ color: theme.textLight }} /></div>}
-            <span className="font-medium" style={{ color: theme.text }}>{formData.nom || etudiant.nom} {formData.prenom || etudiant.prenom}</span>
-          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
           
           {/* MON PROFIL */}
           {activeMenu === "profil" && (
-            <div className="max-w-5xl mx-auto space-y-6">
+            <div className="max-w-4xl mx-auto space-y-6">
               <div className="rounded-2xl shadow-sm overflow-hidden" style={{ backgroundColor: theme.card }}>
                 <div className="h-32 bg-gradient-to-r from-emerald-600 to-teal-600 relative">
                   <div className="absolute -bottom-12 left-6">
                     <div className="relative">
-                      {photoPreview ? <img src={photoPreview} alt="Photo" className="w-24 h-24 rounded-full border-4 border-white object-cover" /> : <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 dark:bg-gray-600 flex items-center justify-center"><User size={40} className="text-gray-400" /></div>}
-                      <label className="absolute bottom-0 right-0 bg-emerald-500 p-1.5 rounded-full cursor-pointer hover:bg-emerald-600"><Camera size={14} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} /></label>
+                      {photoPreview ? (
+                        <img src={photoPreview} alt="Photo" className="w-24 h-24 rounded-full border-4 border-white object-cover" />
+                      ) : (
+                        <div className="w-24 h-24 rounded-full border-4 border-white bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                          <User size={40} className="text-gray-400" />
+                        </div>
+                      )}
+                      <label className="absolute bottom-0 right-0 bg-emerald-500 p-1.5 rounded-full cursor-pointer hover:bg-emerald-600 transition-colors shadow-md">
+                        <Camera size={14} className="text-white" />
+                        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                      </label>
                     </div>
                   </div>
                 </div>
                 <div className="pt-14 pb-6 px-6">
                   <div className="flex justify-between items-start">
-                    <div><h3 className="text-2xl font-bold" style={{ color: theme.text }}>{formData.nom || etudiant.nom} {formData.prenom || etudiant.prenom}</h3><p style={{ color: theme.textLight }}>{formData.email || etudiant.email}</p><p className="text-sm" style={{ color: theme.textLight }}>Matricule: {formData.matricule || etudiant.matricule || "Non renseigné"}</p></div>
-                    {!isEditing ? <button onClick={() => setIsEditing(true)} className="bg-gray-700 text-white px-4 py-2 rounded-xl hover:bg-gray-800 flex items-center gap-2"><Settings size={16} /> Modifier</button> : <div className="flex gap-2"><button onClick={handleSaveProfil} className="bg-emerald-500 text-white px-4 py-2 rounded-xl flex items-center gap-2"><Save size={16} /> Enregistrer</button><button onClick={() => setIsEditing(false)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl flex items-center gap-2"><X size={16} /> Annuler</button></div>}
+                    <div>
+                      <h3 className="text-2xl font-bold" style={{ color: theme.text }}>{formData.nom} {formData.prenom}</h3>
+                      <p style={{ color: theme.textLight }}>{formData.email}</p>
+                      <p className="text-sm" style={{ color: theme.textLight }}>Matricule: {formData.matricule || "Non renseigné"}</p>
+                    </div>
+                    {!isEditing ? (
+                      <button onClick={() => setIsEditing(true)} className="bg-gray-700 text-white px-4 py-2 rounded-xl hover:bg-gray-800 flex items-center gap-2">
+                        <Settings size={16} /> Modifier
+                      </button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={handleSaveProfil} className="bg-emerald-500 text-white px-4 py-2 rounded-xl flex items-center gap-2">
+                          <Save size={16} /> Enregistrer
+                        </button>
+                        <button onClick={() => setIsEditing(false)} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl flex items-center gap-2">
+                          <X size={16} /> Annuler
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
-                <h3 className="text-lg font-semibold mb-5 flex items-center gap-2" style={{ color: theme.text }}><User size={20} className="text-emerald-500" /> Informations personnelles</h3>
-                <div className="grid md:grid-cols-2 gap-5">
+              <div className="rounded-2xl p-6" style={{ backgroundColor: theme.card }}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Informations personnelles</h3>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
                   {[
-                    { label: "Nom", name: "nom", value: formData.nom || etudiant.nom },
-                    { label: "Prénom", name: "prenom", value: formData.prenom || etudiant.prenom },
-                    { label: "Email", name: "email", value: formData.email || etudiant.email, type: "email" },
-                    { label: "Matricule", name: "matricule", value: formData.matricule || etudiant.matricule },
-                    { label: "Téléphone", name: "telephone", value: formData.telephone || etudiant.telephone, placeholder: "+213 XX XXX XXXX" },
-                    { label: "Adresse", name: "adresse", value: formData.adresse || etudiant.adresse, placeholder: "Ville, pays" },
-                    { label: "Filière", name: "filiere", value: formData.filiere || etudiant.filiere },
-                    { label: "Université", name: "universite", value: formData.universite || etudiant.universite },
-                    { label: "Niveau", name: "niveau", value: formData.niveau || etudiant.niveau }
-                  ].map((field) => (
+                    { label: "Nom", name: "nom", value: formData.nom },
+                    { label: "Prénom", name: "prenom", value: formData.prenom },
+                    { label: "Email", name: "email", value: formData.email },
+                    { label: "Filière", name: "filiere", value: formData.filiere },
+                    { label: "Université", name: "universite", value: formData.universite },
+                    { label: "Niveau", name: "niveau", value: formData.niveau },
+                    { label: "Téléphone", name: "telephone", value: formData.telephone },
+                    { label: "Adresse", name: "adresse", value: formData.adresse }
+                  ].map(field => (
                     <div key={field.name}>
-                      <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>{field.label}</label>
-                      {isEditing ? <input type={field.type || "text"} name={field.name} value={formData[field.name]} onChange={handleInputChange} placeholder={field.placeholder} className="w-full p-2 border rounded-xl focus:ring-2 focus:ring-emerald-400" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <p className="p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{field.value || "Non renseigné"}</p>}
+                      <label className="text-sm block mb-1" style={{ color: theme.textLight }}>{field.label}</label>
+                      {isEditing ? (
+                        <input 
+                          type="text" 
+                          name={field.name} 
+                          value={formData[field.name]} 
+                          onChange={handleInputChange} 
+                          className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                          style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                        />
+                      ) : (
+                        <p className="p-2 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                          {field.value || "Non renseigné"}
+                        </p>
+                      )}
                     </div>
                   ))}
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Compétences (séparées par des virgules)</label>
-                    {isEditing ? <input type="text" name="competences" value={formData.competences} onChange={handleInputChange} placeholder="React, Python, JavaScript" className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <div className="flex flex-wrap gap-2 p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>{(formData.competences || "").split(",").map((s, i) => s.trim() && <span key={i} className="px-2 py-1 rounded-full text-sm" style={{ backgroundColor: theme.card, color: theme.text }}>{s.trim()}</span>)}</div>}
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1" style={{ color: theme.textLight }}>Bio</label>
-                    {isEditing ? <textarea name="bio" value={formData.bio} onChange={handleInputChange} rows="3" placeholder="Parlez de vous..." className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /> : <p className="p-2 rounded-xl" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>{formData.bio || etudiant.bio || "Aucune présentation"}</p>}
+                    <label className="text-sm block mb-1" style={{ color: theme.textLight }}>Compétences (séparées par des virgules)</label>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        name="competences" 
+                        value={formData.competences} 
+                        onChange={handleInputChange} 
+                        placeholder="React, Python, Java, ..." 
+                        className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                        style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-2 p-2 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                        {formData.competences ? formData.competences.split(",").map((c, i) => c.trim() && (
+                          <span key={i} className="px-2 py-1 rounded-full text-sm" style={{ backgroundColor: theme.card }}>
+                            {c.trim()}
+                          </span>
+                        )) : <span style={{ color: theme.textLight }}>Aucune compétence</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* SECTION CV AVEC LISTES À PUCES */}
-              <div className="rounded-2xl shadow-sm p-6" style={{ backgroundColor: theme.card }}>
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: theme.text }}><FileText size={20} className="text-emerald-500" /> Curriculum Vitae (CV)</h3>
-                  <button onClick={() => setIsCvEditing(!isCvEditing)} className="text-emerald-600 dark:text-emerald-400 text-sm hover:text-emerald-700 flex items-center gap-1"><Edit size={14} /> {isCvEditing ? "Fermer" : "Personnaliser"}</button>
+              {/* SECTION CV */}
+              <div className="rounded-2xl p-6" style={{ backgroundColor: theme.card }}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Curriculum Vitae (CV)</h3>
+                  <button onClick={() => setIsCvEditing(!isCvEditing)} className="text-emerald-500 text-sm hover:underline">
+                    {isCvEditing ? "Fermer" : "Personnaliser +"}
+                  </button>
                 </div>
-                
-                <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: theme.cardAlt }}>
-                  <div className="flex justify-between items-start mb-4">
-                    <div><h4 className="font-bold" style={{ color: theme.text }}>{getCurrentCv().nom} {getCurrentCv().prenom}</h4><p className="text-sm" style={{ color: theme.textLight }}>{getCurrentCv().email}</p></div>
-                    <div className="flex gap-2">
-                      <button onClick={handleGenerateCVFromProfile} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs hover:bg-emerald-600 flex items-center gap-1"><FilePlus size={12} /> Générer</button>
-                      <button onClick={handleDownloadCV} className="px-3 py-1.5 bg-gray-600 text-white rounded-lg text-xs hover:bg-gray-700 flex items-center gap-1"><Download size={12} /> Télécharger</button>
-                    </div>
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-gray-500">Téléphone:</span> <span style={{ color: theme.text }}>{getCurrentCv().telephone || "Non renseigné"}</span></div>
-                    <div><span className="text-gray-500">Adresse:</span> <span style={{ color: theme.text }}>{getCurrentCv().adresse || "Non renseignée"}</span></div>
-                    <div><span className="text-gray-500">Université:</span> <span style={{ color: theme.text }}>{getCurrentCv().universite || "Non renseignée"}</span></div>
-                    <div><span className="text-gray-500">Filière:</span> <span style={{ color: theme.text }}>{getCurrentCv().filiere || "Non renseignée"}</span></div>
-                  </div>
-                </div>
-
-                {/* Zone d'édition du CV avec listes */}
                 {isCvEditing && (
-                  <div className="border-t pt-4 mt-2" style={{ borderColor: theme.border }}>
-                    <h4 className="font-medium mb-3 flex items-center gap-2" style={{ color: theme.text }}><Edit size={16} className="text-emerald-500" /> Informations complémentaires</h4>
+                  <div className="space-y-4 mb-4">
+                    <ListSection 
+                      title="Expériences professionnelles" 
+                      items={experiences} 
+                      onAdd={addExperience} 
+                      onRemove={removeExperience} 
+                      newValue={newExperience} 
+                      setNewValue={setNewExperience} 
+                      placeholder="Ex: Stage chez ABC Entreprise" 
+                      darkMode={darkMode} 
+                    />
                     
                     <ListSection 
-                      title="Expérience professionnelle"
-                      items={experiences}
-                      onAdd={addExperience}
-                      onRemove={removeExperience}
-                      newValue={newExperience}
-                      setNewValue={setNewExperience}
-                      placeholder="Ex: Stage chez ABC, 2023 - 2024"
-                      darkMode={darkMode}
+                      title="Formations" 
+                      items={formations} 
+                      onAdd={addFormation} 
+                      onRemove={removeFormation} 
+                      newValue={newFormation} 
+                      setNewValue={setNewFormation} 
+                      placeholder="Ex: Master en Informatique" 
+                      darkMode={darkMode} 
                     />
                     
-                    <ListSection
-                      title="Formation complémentaire"
-                      items={formations}
-                      onAdd={addFormation}
-                      onRemove={removeFormation}
-                      newValue={newFormation}
-                      setNewValue={setNewFormation}
-                      placeholder="Ex: Certification React, 2024"
-                      darkMode={darkMode}
+                    <ListSection 
+                      title="Langues" 
+                      items={langues} 
+                      onAdd={addLangue} 
+                      onRemove={removeLangue} 
+                      newValue={newLangue} 
+                      setNewValue={setNewLangue} 
+                      placeholder="Ex: Anglais (Courant), Français" 
+                      darkMode={darkMode} 
                     />
                     
-                    <ListSection
-                      title="Langues"
-                      items={langues}
-                      onAdd={addLangue}
-                      onRemove={removeLangue}
-                      newValue={newLangue}
-                      setNewValue={setNewLangue}
-                      placeholder="Ex: Arabe (natif), Français (courant), Anglais (intermédiaire)"
-                      darkMode={darkMode}
+                    <ListSection 
+                      title="Centres d'intérêt" 
+                      items={centresInteret} 
+                      onAdd={addCentreInteret} 
+                      onRemove={removeCentreInteret} 
+                      newValue={newCentreInteret} 
+                      setNewValue={setNewCentreInteret} 
+                      placeholder="Ex: Sport, Lecture" 
+                      darkMode={darkMode} 
                     />
-                    
-                    <ListSection
-                      title="Centres d'intérêt"
-                      items={centresInteret}
-                      onAdd={addCentreInteret}
-                      onRemove={removeCentreInteret}
-                      newValue={newCentreInteret}
-                      setNewValue={setNewCentreInteret}
-                      placeholder="Ex: Sport, lecture, voyage"
-                      darkMode={darkMode}
-                    />
-                    
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={handleGenerateCVFromProfile} className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-600">Mettre à jour le CV</button>
-                      <button onClick={() => {
-                        setExperiences([]);
-                        setFormations([]);
-                        setLangues([]);
-                        setCentresInteret([]);
-                      }} className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600">Tout effacer</button>
-                    </div>
                   </div>
                 )}
-
-                <div className="border-t pt-4 mt-4" style={{ borderColor: theme.border }}>
-                  <p className="text-sm mb-2" style={{ color: theme.textLight }}>Ou téléchargez un CV existant :</p>
-                  <label className="bg-gray-700 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-800 inline-flex items-center gap-2 text-sm"><Upload size={14} /> Choisir un fichier<input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleCVUpload} /></label>
-                  {uploadedCv && <div className="mt-2 p-2 rounded-lg text-sm flex items-center justify-between" style={{ backgroundColor: theme.cardAlt }}><span style={{ color: theme.text }}>📄 {uploadedCv.name}</span><button onClick={() => { setUploadedCv(null); setCvName(""); }} className="text-rose-500 text-xs">Supprimer</button></div>}
+                <div className="flex gap-3 flex-wrap">
+                  <button onClick={handleGenerateCVFromProfile} className="bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition">
+                    Générer CV
+                  </button>
+                  <label className="bg-gray-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-gray-700 transition">
+                    Upload CV
+                    <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleCVUpload} />
+                  </label>
+                  {uploadedCv && (
+                    <button onClick={handleDeleteCV} className="bg-rose-500 text-white px-4 py-2 rounded-lg hover:bg-rose-600 transition flex items-center gap-2">
+                      <Trash2 size={16} /> Supprimer CV
+                    </button>
+                  )}
                 </div>
+                {uploadedCv && (
+                  <div className="mt-3 flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                    <p className="text-sm text-emerald-500 flex items-center gap-2">
+                      <FileText size={16} /> ✓ CV: {uploadedCv.name}
+                    </p>
+                    <button onClick={handleDownloadCV} className="text-blue-500 hover:text-blue-600 text-sm flex items-center gap-1">
+                      <Download size={14} /> Télécharger
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1212,12 +1382,12 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
           {activeMenu === "offres" && (
             <div className="space-y-5">
               <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
-                <div className="flex gap-3 flex-wrap items-center">
+                <div className="flex gap-3 items-center">
                   <div className="flex-1 relative">
                     <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
                     <input 
                       type="text" 
-                      placeholder="Rechercher par titre, entreprise, description ou compétences..." 
+                      placeholder="Rechercher par titre, entreprise, description..." 
                       value={filters.search} 
                       onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))} 
                       className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-emerald-400"
@@ -1235,76 +1405,76 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
                     )}
                   </button>
                   {activeFiltersCount > 0 && (
-                    <button onClick={resetFilters} className="text-rose-500 text-sm hover:text-rose-600 flex items-center gap-1">
-                      <X size={14} /> Réinitialiser
+                    <button onClick={resetFilters} className="px-4 py-2 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition flex items-center gap-2">
+                      <X size={16} /> Réinitialiser
                     </button>
                   )}
                 </div>
 
                 {activeFiltersCount > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {filters.type && <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">Type: {filters.type}</span>}
-                    {filters.ville && <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">Wilaya: {filters.ville}</span>}
-                    {filters.duree && <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full">Durée: {filters.duree}</span>}
-                    {filters.salaireMin && <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">Salaire min: {filters.salaireMin} DA</span>}
-                    {filters.salaireMax && <span className="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full">Salaire max: {filters.salaireMax} DA</span>}
+                    {filters.type && <span className="text-xs px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center gap-1"><Briefcase size={10} /> {filters.type}</span>}
+                    {filters.ville && <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full flex items-center gap-1"><MapPin size={10} /> {filters.ville}</span>}
+                    {filters.duree && <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full flex items-center gap-1"><Clock size={10} /> {filters.duree}</span>}
                   </div>
                 )}
               </div>
               
+              <div className="text-sm" style={{ color: theme.textLight }}>{offresFiltrees.length} offre(s) trouvée(s)</div>
+              
               {offresFiltrees.length > 0 ? (
-                <>
-                  <div className="text-sm" style={{ color: theme.textLight }}>{offresFiltrees.length} offre(s) trouvée(s)</div>
-                  {offresFiltrees.map(offre => (
-                    <div key={offre.id} className="rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-                      <div className="p-5">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex flex-wrap gap-2 mb-2">
-                              <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full">{offre.type || 'Stage'}</span>
-                              {offre.salaire && offre.salaire !== 'Non rémunéré' && offre.salaire !== 'Non spécifié' && (
-                                <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full flex items-center gap-1">
-                                  <DollarSign size={12} /> {offre.salaire}
-                                </span>
-                              )}
-                              {offre.salaire === 'Non rémunéré' && (
-                                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-xs font-medium rounded-full">Non rémunéré</span>
-                              )}
-                            </div>
-                            <h3 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{offre.titre}</h3>
-                            <div className="flex items-center gap-2 mb-3" style={{ color: theme.textLight }}><Building2 size={16} /><span className="text-sm">{offre.entreprise}</span></div>
-                            <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
-                              <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu || 'Non spécifié'}</span>
-                              <span className="flex items-center gap-1"><Clock size={14} /> {offre.duree || 'Non spécifiée'}</span>
-                            </div>
-                            {offre.description && (
-                              <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
-                                <p className="text-sm leading-relaxed" style={{ color: theme.text }}>{offre.description}</p>
-                              </div>
-                            )}
-                            {offre.competences && offre.competences.length > 0 && (
-                              <div className="mt-3">
-                                <p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {offre.competences.slice(0, 4).map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}
-                                  {offre.competences.length > 4 && <span className="text-xs" style={{ color: theme.textLight }}>+{offre.competences.length - 4}</span>}
-                                </div>
-                              </div>
+                offresFiltrees.map(offre => (
+                  <div key={offre.id} className="rounded-xl shadow-sm hover:shadow-md transition-all overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+                    <div className="p-5">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-medium rounded-full">{offre.type || 'Stage'}</span>
+                            {offre.salaire && offre.salaire !== 'Non rémunéré' && offre.salaire !== 'Non spécifié' && (
+                              <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 text-xs font-medium rounded-full flex items-center gap-1">
+                                <DollarSign size={12} /> {offre.salaire}
+                              </span>
                             )}
                           </div>
-                          <div className="flex flex-col items-end gap-3 ml-4">
-                            <button onClick={() => toggleFavori(offre.id)} className={`p-2 rounded-full transition-all ${favoris[offre.id] ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-rose-100 dark:hover:bg-rose-900 hover:text-rose-500"}`}>
-                              <Heart size={20} fill={favoris[offre.id] ? "white" : "none"} />
-                            </button>
-                            <button onClick={() => handlePostuler(offre)} className="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">
-                              Postuler
-                            </button>
+                          <h3 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{offre.titre}</h3>
+                          <div className="flex items-center gap-2 mb-3" style={{ color: theme.textLight }}>
+                            <Building2 size={16} />
+                            <span className="text-sm">{offre.entreprise}</span>
                           </div>
+                          <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
+                            <span className="flex items-center gap-1"><MapPin size={14} /> {offre.lieu || 'Non spécifié'}</span>
+                            <span className="flex items-center gap-1"><Clock size={14} /> {offre.duree || 'Non spécifiée'}</span>
+                          </div>
+                          {offre.description && (
+                            <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                              <p className="text-sm leading-relaxed" style={{ color: theme.text }}>{offre.description}</p>
+                            </div>
+                          )}
+                          {offre.competences && offre.competences.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs mb-2" style={{ color: theme.textLight }}>Compétences requises :</p>
+                              <div className="flex flex-wrap gap-2">
+                                {offre.competences.slice(0, 4).map((s, i) => <span key={i} className="px-2 py-1 rounded-full text-xs" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>{s}</span>)}
+                                {offre.competences.length > 4 && <span className="text-xs" style={{ color: theme.textLight }}>+{offre.competences.length - 4}</span>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-3 ml-4">
+                          <button 
+                            onClick={() => toggleFavori(offre.id)} 
+                            className={`p-2 rounded-full transition-all ${favoris[offre.id] ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-rose-100 dark:hover:bg-rose-900 hover:text-rose-500"}`}
+                          >
+                            <Heart size={20} fill={favoris[offre.id] ? "white" : "none"} />
+                          </button>
+                          <button onClick={() => handlePostuler(offre)} className="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 font-medium">
+                            Postuler
+                          </button>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </>
+                  </div>
+                ))
               ) : (
                 <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
                   <Briefcase size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
@@ -1315,33 +1485,173 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
             </div>
           )}
           
-          {/* MES CANDIDATURES */}
-          {activeMenu === "mesCandidatures" && (
-            <div className="space-y-3">
-              {mesCandidatures.length > 0 ? mesCandidatures.map(c => (
-                <div key={c.id} className="rounded-xl p-4 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="font-bold" style={{ color: theme.text }}>{c.offreTitre}</h4>
-                      <p className="text-sm" style={{ color: theme.textLight }}>Postulé le {c.date}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"}`}>
-                      {c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}
-                    </span>
-                  </div>
+          {/* MODALE DE CONFIRMATION SUPPRESSION */}
+{showConfirmDeleteModal && candidatureToDelete && (
+  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
+    <div className="rounded-2xl max-w-md w-full shadow-2xl transform animate-scale-up" style={{ backgroundColor: theme.card }}>
+      {/* En-tête */}
+      <div className="border-b px-6 py-4 flex items-center gap-3" style={{ borderColor: theme.border }}>
+        <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+          <Trash2 size={22} className="text-rose-500" />
+        </div>
+        <h3 className="text-xl font-bold" style={{ color: theme.text }}>
+          Confirmer la suppression
+        </h3>
+      </div>
+      
+      {/* Corps */}
+      <div className="p-6">
+        <p className="text-center mb-4" style={{ color: theme.text }}>
+          Êtes-vous sûr de vouloir supprimer votre candidature pour :
+        </p>
+        <p className="text-center font-bold text-lg mb-2" style={{ color: theme.text }}>
+          "{candidatureToDelete.offreTitre}"
+        </p>
+        <p className="text-center text-sm mb-4" style={{ color: theme.textLight }}>
+          chez <strong>{candidatureToDelete.entrepriseNom || 'Entreprise'}</strong>
+        </p>
+        
+        <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: theme.cardAlt }}>
+          <p className="text-sm flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
+            <AlertCircle size={18} />
+            Cette action est irréversible !
+          </p>
+        </div>
+        
+        <p className="text-xs text-center" style={{ color: theme.textLight }}>
+          Postulé le : {new Date(candidatureToDelete.date).toLocaleDateString('fr-FR')}
+        </p>
+      </div>
+      
+      {/* Boutons */}
+      <div className="border-t p-5 flex gap-3" style={{ borderColor: theme.border }}>
+        <button
+          onClick={() => {
+            setShowConfirmDeleteModal(false);
+            setCandidatureToDelete(null);
+          }}
+          className="flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 hover:opacity-80"
+          style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+        >
+          <X size={18} />
+          Annuler
+        </button>
+        <button
+          onClick={handleDeleteCandidature}
+          className="flex-1 bg-rose-500 text-white py-2.5 rounded-xl font-semibold hover:bg-rose-600 transition-all flex items-center justify-center gap-2"
+        >
+          <Trash2 size={18} />
+          Confirmer la suppression
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+    {/* MES CANDIDATURES */}
+{activeMenu === "mesCandidatures" && (
+  <div className="space-y-3">
+    {candidatures.length > 0 ? candidatures.map(c => (
+      <div key={c.id} className="rounded-xl p-5 shadow-sm hover:shadow-md transition border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+        <div className="flex justify-between items-start flex-wrap gap-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <h4 className="font-bold text-lg" style={{ color: theme.text }}>{c.offreTitre}</h4>
+              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
+                c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
+                "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+              }`}>
+                {c.statut === "acceptee" ? "✅ Acceptée" : c.statut === "refusee" ? "❌ Refusée" : "⏳ En attente"}
+              </span>
+            </div>
+            
+            {/* Informations entreprise */}
+            <div className="flex items-center gap-2 mb-2" style={{ color: theme.textLight }}>
+              <Building2 size={16} />
+              <span className="text-sm font-medium">{c.entrepriseNom || 'Entreprise'}</span>
+            </div>
+            
+            {/* Détails du stage */}
+            <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
+              {c.lieu && (
+                <span className="flex items-center gap-1">
+                  <MapPin size={14} /> {c.lieu}
+                </span>
+              )}
+              {c.type && (
+                <span className="flex items-center gap-1">
+                  <Briefcase size={14} /> {c.type}
+                </span>
+              )}
+              {c.duree && (
+                <span className="flex items-center gap-1">
+                  <Clock size={14} /> {c.duree}
+                </span>
+              )}
+              {c.salaire && c.salaire !== 'Non spécifié' && (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <DollarSign size={14} /> {c.salaire}
+                </span>
+              )}
+            </div>
+            
+            <p className="text-xs" style={{ color: theme.textLight }}>
+              <Calendar size={12} className="inline mr-1" /> 
+              Postulé le {new Date(c.date).toLocaleDateString('fr-FR')}
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-end gap-2">
+            {/* Statut badge détaillé */}
+            <div className="text-right">
+              {c.statut === "en_attente" && (
+                <div className="flex items-center gap-1 text-yellow-600 text-sm">
+                  <Clock size={14} /> En cours de traitement
                 </div>
-              )) : <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Send size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Aucune candidature</p></div>}
+              )}
+              {c.statut === "acceptee" && (
+                <div className="flex items-center gap-1 text-emerald-600 text-sm">
+                  <CheckCircle size={14} /> Félicitations !
+                </div>
+              )}
+              {c.statut === "refusee" && (
+                <div className="flex items-center gap-1 text-rose-600 text-sm">
+                  <XCircle size={14} /> Non retenu
+                </div>
+              )}
             </div>
-          )}
-
-          {/* MES STAGES */}
-          {activeMenu === "mesStages" && (
-            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-              <Calendar size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-              <p style={{ color: theme.textLight }}>Mes stages apparaîtront ici</p>
-            </div>
-          )}
-
+            
+          {/* BOUTON SUPPRIMER - Apparaît SEULEMENT si la candidature est EN ATTENTE */}
+{c.statut === "en_attente" && (
+  <button
+    onClick={() => openDeleteConfirmation(c)}  // ← Utilisez cette fonction au lieu de handleDeleteCandidature directement
+    className="mt-2 px-4 py-2 bg-rose-500 text-white rounded-lg text-sm hover:bg-rose-600 transition-all flex items-center gap-2 shadow-sm"
+  >
+    <Trash2 size={14} />
+    Supprimer candidature
+  </button>
+)}
+            
+            {/* Message pour les candidatures déjà traitées */}
+            {c.statut !== "en_attente" && (
+              <p className="text-xs mt-2 px-2 py-1 rounded-lg" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>
+                {c.statut === "acceptee" ? "✓ Candidature acceptée - Impossible de supprimer" : "✗ Candidature refusée - Impossible de supprimer"}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    )) : (
+      <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+        <Send size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+        <p style={{ color: theme.textLight }}>Aucune candidature</p>
+        <button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 hover:text-emerald-700">Découvrir des offres →</button>
+      </div>
+    )}
+  </div>
+)}
           {/* MES FAVORIS */}
           {activeMenu === "favoris" && (
             <div className="space-y-3">
@@ -1351,85 +1661,371 @@ export function DashboardEtudiant({ etudiant, offres = offersData, candidatures,
                     <div>
                       <h4 className="font-bold" style={{ color: theme.text }}>{offre.titre}</h4>
                       <p style={{ color: theme.textLight }}>{offre.entreprise}</p>
-                      <div className="flex gap-3 mt-1 text-xs" style={{ color: theme.textLight }}><span><MapPin size={12} className="inline" /> {offre.lieu}</span><span><Clock size={12} className="inline" /> {offre.duree}</span></div>
+                      <div className="flex gap-3 mt-1 text-xs" style={{ color: theme.textLight }}>
+                        <span><MapPin size={12} className="inline" /> {offre.lieu}</span>
+                        <span><Clock size={12} className="inline" /> {offre.duree}</span>
+                      </div>
                     </div>
                     <div className="flex flex-col gap-2 items-end">
-                      <button onClick={() => toggleFavori(offre.id)} className="p-2 rounded-full bg-rose-500 text-white hover:bg-rose-600"><Heart size={18} fill="white" /></button>
-                      <button onClick={() => handlePostuler(offre)} className="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-600">Postuler</button>
+                      <button onClick={() => toggleFavori(offre.id)} className="p-2 rounded-full bg-rose-500 text-white hover:bg-rose-600">
+                        <Heart size={18} fill="white" />
+                      </button>
+                      <button onClick={() => handlePostuler(offre)} className="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-emerald-600">
+                        Postuler
+                      </button>
                     </div>
                   </div>
                 </div>
-              )) : <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}><Heart size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} /><p style={{ color: theme.textLight }}>Aucun favori</p><button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700">Découvrir des offres →</button></div>}
+              )) : (
+                <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                  <Heart size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                  <p style={{ color: theme.textLight }}>Aucun favori</p>
+                  <button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 hover:text-emerald-700">Découvrir des offres →</button>
+                </div>
+              )}
             </div>
           )}
 
           {/* MES ÉVALUATIONS */}
-          {activeMenu === "evaluations" && (
-            <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-              <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-              <p style={{ color: theme.textLight }}>Évaluations à venir</p>
+{activeMenu === "mesEvaluations" && (
+  <div className="space-y-4">
+    <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
+      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+        <Star size={20} className="text-yellow-500" />
+        Mes évaluations de stage
+      </h3>
+      <p className="text-sm mb-4" style={{ color: theme.textLight }}>
+        Voici les évaluations faites par les entreprises où vous avez effectué votre stage.
+      </p>
+    </div>
+
+    {loadingEvaluations ? (
+      <div className="text-center py-12">
+        <div className="spinner mx-auto"></div>
+        <p className="mt-4" style={{ color: theme.textLight }}>Chargement des évaluations...</p>
+      </div>
+    ) : mesEvaluations.length > 0 ? (
+      mesEvaluations.map((evalData, index) => (
+        <div key={index} className="rounded-xl shadow-sm overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+          {/* En-tête avec entreprise et offre */}
+          <div className="p-5 border-b" style={{ borderColor: theme.border, backgroundColor: theme.cardAlt }}>
+            <div className="flex justify-between items-start flex-wrap gap-3">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 size={18} className="text-emerald-500" />
+                  <span className="font-semibold" style={{ color: theme.text }}>{evalData.entrepriseNom || 'Entreprise'}</span>
+                </div>
+                <h4 className="font-bold text-lg" style={{ color: theme.text }}>{evalData.offreTitre}</h4>
+                <p className="text-xs mt-1" style={{ color: theme.textLight }}>
+                  <Calendar size={12} className="inline mr-1" />
+                  Évalué le : {evalData.dateEvaluation || new Date(evalData.createdAt).toLocaleDateString('fr-FR')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <Star 
+                      key={star} 
+                      size={20} 
+                      className={star <= evalData.evaluation?.note ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                    />
+                  ))}
+                </div>
+                <span className="text-2xl font-bold text-yellow-500 ml-2">{evalData.evaluation?.note}/5</span>
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* Corps de l'évaluation */}
+          <div className="p-5">
+            {/* Grille des notes */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <Clock size={20} className="mx-auto mb-1 text-blue-500" />
+                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Ponctualité</p>
+                <p className="text-xl font-bold text-blue-600">{evalData.evaluation?.ponctualite || 0}/20</p>
+              </div>
+              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <FileText size={20} className="mx-auto mb-1 text-purple-500" />
+                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Qualité travail</p>
+                <p className="text-xl font-bold text-purple-600">{evalData.evaluation?.qualiteTravail || 0}/20</p>
+              </div>
+              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <User size={20} className="mx-auto mb-1 text-orange-500" />
+                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Autonomie</p>
+                <p className="text-xl font-bold text-orange-600">{evalData.evaluation?.autonomie || 0}/20</p>
+              </div>
+              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <Users size={20} className="mx-auto mb-1 text-green-500" />
+                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Esprit d'équipe</p>
+                <p className="text-xl font-bold text-green-600">{evalData.evaluation?.espritEquipe || 0}/20</p>
+              </div>
+            </div>
+
+            {/* Moyenne générale */}
+            <div className="rounded-xl p-4 mb-4 text-center" style={{ backgroundColor: theme.cardAlt }}>
+              <p className="text-sm font-medium mb-1" style={{ color: theme.textLight }}>Moyenne générale</p>
+              <p className="text-3xl font-bold text-emerald-600">
+                {Math.round((
+                  (evalData.evaluation?.ponctualite || 0) + 
+                  (evalData.evaluation?.qualiteTravail || 0) + 
+                  (evalData.evaluation?.autonomie || 0) + 
+                  (evalData.evaluation?.espritEquipe || 0)
+                ) / 4)}/20
+              </p>
+            </div>
+
+            {/* Progression */}
+            {evalData.evaluation?.progression && (
+              <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp size={16} className="text-blue-500" />
+                  <span className="font-medium" style={{ color: theme.text }}>Progression observée</span>
+                </div>
+                <p className="text-sm" style={{ color: theme.textLight }}>
+                  {evalData.evaluation.progression === 'excellente' && '📈 Excellente - A dépassé les objectifs'}
+                  {evalData.evaluation.progression === 'bonne' && '📈 Bonne - Progression notable'}
+                  {evalData.evaluation.progression === 'moyenne' && '📊 Moyenne - Conforme aux attentes'}
+                  {evalData.evaluation.progression === 'faible' && '📉 Faible - Peu de progression'}
+                  {evalData.evaluation.progression === 'aucune' && '⏸️ Aucune - Stagnation'}
+                </p>
+              </div>
+            )}
+
+            {/* Commentaire */}
+            {evalData.evaluation?.commentaire && (
+              <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <MessageCircle size={16} className="text-emerald-500" />
+                  <span className="font-medium" style={{ color: theme.text }}>Commentaire de l'entreprise</span>
+                </div>
+                <p className="text-sm italic" style={{ color: theme.textLight }}>
+                  "{evalData.evaluation.commentaire}"
+                </p>
+                <p className="text-xs mt-2 text-right" style={{ color: theme.textLight }}>
+                  — {evalData.evaluation.evaluateur || 'L\'entreprise'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ))
+    ) : (
+      <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+        <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+        <p style={{ color: theme.textLight }}>Aucune évaluation reçue pour le moment</p>
+        <p className="text-sm mt-2" style={{ color: theme.textLight }}>
+          Les évaluations apparaîtront ici une fois que vous aurez effectué un stage accepté par une entreprise.
+        </p>
+      </div>
+    )}
+  </div>
+)}
 
           {/* CHANGER MOT DE PASSE */}
           {activeMenu === "changePassword" && (
             <div className="max-w-md mx-auto">
-              <div className="rounded-2xl shadow-sm p-8" style={{ backgroundColor: theme.card }}>
-                <div className="text-center mb-6">
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}><Key size={40} className="text-emerald-500" /></div>
-                  <h3 className="text-2xl font-bold" style={{ color: theme.text }}>Changer le mot de passe</h3>
-                  <p className="text-sm mt-2" style={{ color: theme.textLight }}>Sécurisez votre compte</p>
-                </div>
+              <div className="rounded-2xl p-8" style={{ backgroundColor: theme.card }}>
+                <h3 className="text-xl font-bold mb-4">Changer le mot de passe</h3>
                 <div className="space-y-4">
-                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Ancien mot de passe</label><input type="password" name="ancienMotDePasse" value={passwordData.ancienMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Entrez votre mot de passe actuel" />{passwordErrors.ancienMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.ancienMotDePasse}</p>}</div>
-                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Nouveau mot de passe</label><input type="password" name="nouveauMotDePasse" value={passwordData.nouveauMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Minimum 6 caractères" />{passwordErrors.nouveauMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.nouveauMotDePasse}</p>}</div>
-                  <div><label className="block text-sm font-medium mb-1" style={{ color: theme.text }}>Confirmer</label><input type="password" name="confirmerMotDePasse" value={passwordData.confirmerMotDePasse} onChange={handlePasswordChange} className="w-full p-3 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} placeholder="Retapez votre nouveau mot de passe" />{passwordErrors.confirmerMotDePasse && <p className="text-rose-500 text-xs mt-1">{passwordErrors.confirmerMotDePasse}</p>}</div>
-                  <div className="flex gap-3 pt-4"><button onClick={handleSubmitPasswordChange} className="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-semibold hover:bg-emerald-600">Changer</button><button onClick={() => { setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" }); setPasswordErrors({}); }} className="flex-1 py-3 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Réinitialiser</button></div>
+                  <input 
+                    type="password" 
+                    name="ancienMotDePasse" 
+                    value={passwordData.ancienMotDePasse} 
+                    onChange={handlePasswordChange} 
+                    placeholder="Ancien mot de passe" 
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                  <input 
+                    type="password" 
+                    name="nouveauMotDePasse" 
+                    value={passwordData.nouveauMotDePasse} 
+                    onChange={handlePasswordChange} 
+                    placeholder="Nouveau mot de passe (min 6 caractères)" 
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                  <input 
+                    type="password" 
+                    name="confirmerMotDePasse" 
+                    value={passwordData.confirmerMotDePasse} 
+                    onChange={handlePasswordChange} 
+                    placeholder="Confirmer" 
+                    className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                    style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} 
+                  />
+                  {passwordErrors.confirmerMotDePasse && <p className="text-rose-500 text-sm">{passwordErrors.confirmerMotDePasse}</p>}
+                  <button onClick={handleSubmitPasswordChange} className="w-full bg-emerald-500 text-white py-3 rounded-xl hover:bg-emerald-600 transition font-semibold">
+                    Changer le mot de passe
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
           {/* CONDITIONS & AIDE */}
-          {activeMenu === "aide" && (
-            <div className="rounded-2xl shadow-sm p-6 max-w-3xl mx-auto" style={{ backgroundColor: theme.card }}>
-              <h3 className="font-bold text-xl mb-5" style={{ color: theme.text }}>📚 Centre d'aide</h3>
-              <div className="space-y-3">
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                  <p className="font-semibold" style={{ color: theme.text }}>🔍 Comment utiliser la recherche ?</p>
-                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>
-                    • Barre de recherche : cherche dans les titres, entreprises, descriptions et compétences<br />
-                    • Cliquez sur "Filtres" pour ouvrir une fenêtre et écrire vos critères :<br />
-                    &nbsp;&nbsp;- Type de stage (Stage, Stage PFE, Alternance)<br />
-                    &nbsp;&nbsp;- Wilaya (tapez les premières lettres pour voir les suggestions)<br />
-                    &nbsp;&nbsp;- Durée (3 mois, 6 mois...)<br />
-                    &nbsp;&nbsp;- Salaire minimum et maximum (en DA)<br />
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                  <p className="font-semibold" style={{ color: theme.text }}>📝 Comment postuler ?</p>
-                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>1. Allez dans "Liste des offres"<br />2. Choisissez une offre<br />3. Cliquez sur "Postuler"<br />4. Choisissez votre CV (upload ou CV du profil)<br />5. Confirmez</p>
-                </div>
-                <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                  <p className="font-semibold" style={{ color: theme.text }}>❤️ Comment ajouter une offre en favori ?</p>
-                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Cliquez sur le cœur ❤️ à côté de l'offre</p>
-                </div>
-                <div className="p-4 rounded-xl border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
-                  <p className="font-semibold text-emerald-600 dark:text-emerald-400">📧 Besoin d'aide ?</p>
-                  <p className="text-sm mt-1" style={{ color: theme.textLight }}>Contactez-nous : support@stageflow.dz</p>
-                </div>
-              </div>
-            </div>
-          )}
+{activeMenu === "aide" && (
+  <div className="max-w-4xl mx-auto space-y-6">
+    {/* En-tête */}
+    <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.card }}>
+      <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}>
+        <HelpCircle size={40} className="text-emerald-500" />
+      </div>
+      <h3 className="text-2xl font-bold mb-2" style={{ color: theme.text }}>Centre d'aide & Conditions</h3>
+      <p className="text-sm" style={{ color: theme.textLight }}>
+        Retrouvez toutes les informations nécessaires pour utiliser la plateforme
+      </p>
+    </div>
+
+    {/* FAQ Section */}
+    <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+        <MessageCircle size={20} className="text-emerald-500" />
+        Foire Aux Questions (FAQ)
+      </h3>
+      
+      <div className="space-y-4">
+        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+            <Briefcase size={16} className="text-emerald-500" />
+            Comment postuler à une offre ?
+          </h4>
+          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+            1. Parcourez la liste des offres dans la section "Liste des offres"<br />
+            2. Cliquez sur "Postuler" sur l'offre qui vous intéresse<br />
+            3. Téléchargez votre CV ou utilisez celui de votre profil<br />
+            4. Confirmez votre candidature
+          </p>
+        </div>
+
+        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+            <Heart size={16} className="text-rose-500" />
+            Comment ajouter une offre aux favoris ?
+          </h4>
+          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+            Cliquez sur l'icône ❤️ à côté de chaque offre pour l'ajouter à vos favoris. 
+            Retrouvez toutes vos offres favorites dans la section "Mes favoris".
+          </p>
+        </div>
+
+        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+            <FileText size={16} className="text-blue-500" />
+            Comment gérer mon CV ?
+          </h4>
+          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+            - Upload CV: Téléchargez votre CV au format PDF, DOC ou DOCX<br />
+            - Générer CV: Créez un CV automatiquement à partir de vos informations de profil<br />
+            - Supprimer CV: Retirez votre CV de la plateforme
+          </p>
+        </div>
+
+        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+            <Bell size={16} className="text-yellow-500" />
+            Comment suivre mes candidatures ?
+          </h4>
+          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+            Rendez-vous dans la section "Mes candidatures" pour suivre l'état de vos candidatures :
+            <br />• 🟡 En attente: Votre candidature est en cours d'examen
+            <br />• 🟢 Acceptée: Félicitations ! L'entreprise vous a accepté
+            <br />• 🔴 Refusée: Votre candidature n'a pas été retenue
+          </p>
+        </div>
+
+        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+            <User size={16} className="text-purple-500" />
+            Comment modifier mon profil ?
+          </h4>
+          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+            Allez dans "Mon profil" et cliquez sur "Modifier". Vous pourrez mettre à jour 
+            vos informations personnelles, votre filière, vos compétences, etc.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Conditions d'utilisation */}
+    <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+        <FileText size={20} className="text-emerald-500" />
+        Conditions d'utilisation
+      </h3>
+      
+      <div className="space-y-3 text-sm leading-relaxed" style={{ color: theme.textLight }}>
+        <p>
+          <strong className="text-emerald-600">1. Acceptation des conditions</strong><br />
+          En utilisant notre plateforme, vous acceptez pleinement les présentes conditions d'utilisation.
+        </p>
+        <p>
+          <strong className="text-emerald-600">2. Compte utilisateur</strong><br />
+          Vous êtes responsable de la confidentialité de votre compte et de votre mot de passe. 
+          Toute activité effectuée sous votre compte est de votre responsabilité.
+        </p>
+        <p>
+          <strong className="text-emerald-600">3. Candidatures</strong><br />
+          Les informations fournies dans vos candidatures doivent être exactes et sincères. 
+          Tout faux renseignement peut entraîner la suspension de votre compte.
+        </p>
+        <p>
+          <strong className="text-emerald-600">4. Confidentialité</strong><br />
+          Vos données personnelles sont protégées conformément à notre politique de confidentialité. 
+          Elles ne seront pas partagées avec des tiers sans votre consentement.
+        </p>
+        <p>
+          <strong className="text-emerald-600">5. Comportement</strong><br />
+          Les utilisateurs doivent adopter un comportement respectueux envers les entreprises et autres utilisateurs. 
+          Tout abus ou comportement inapproprié sera sanctionné.
+        </p>
+      </div>
+    </div>
+
+    {/* Contact Support */}
+    <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.cardAlt }}>
+      <h3 className="text-lg font-semibold mb-3 flex items-center justify-center gap-2" style={{ color: theme.text }}>
+        <Mail size={20} className="text-emerald-500" />
+        Besoin d'aide supplémentaire ?
+      </h3>
+      <p className="text-sm mb-4" style={{ color: theme.textLight }}>
+        Notre équipe support est disponible pour répondre à vos questions
+      </p>
+      <div className="flex flex-wrap gap-3 justify-center">
+        <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
+          <Mail size={16} className="text-emerald-500" />
+          <span className="text-sm">support@stag.io</span>
+        </div>
+        <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
+          <Phone size={16} className="text-emerald-500" />
+          <span className="text-sm">+213 (0) 23 45 67 89</span>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </div>
 
-      {/* STYLES CSS */}
       <style>{`
-        @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slide-in { 
+          from { opacity: 0; transform: translateX(100%); } 
+          to { opacity: 1; transform: translateX(0); } 
+        }
         .animate-slide-in { animation: slide-in 0.3s ease-out; }
-        .spinner { border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #10b981; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
+        .spinner { 
+          border: 3px solid rgba(0,0,0,0.1); 
+          border-radius: 50%; 
+          border-top-color: #10b981; 
+          width: 40px; 
+          height: 40px; 
+          animation: spin 0.8s linear infinite; 
+          margin: 0 auto; 
+        }
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
       `}</style>
     </div>
   );

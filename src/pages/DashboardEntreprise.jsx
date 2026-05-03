@@ -5,27 +5,23 @@ import {
   FileText, Upload, Download, FilePlus, Eye, Phone, MapPin, Mail, Search,
   Award, AlertCircle, Check, XCircle, HelpCircle,
   MessageCircle, BookOpen, ExternalLink, DollarSign, Star, Camera, Globe,
-  PieChart, Tag
+   Tag
 } from "lucide-react";
+import { api } from '../api';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 // ============================================
-// COMPOSANT DASHBOARD ENTREPRISE (AVEC MODE SOMBRE SYNCHRONISÉ)
+// COMPOSANT DASHBOARD ENTREPRISE
 // ============================================
 export function DashboardEntreprise({ 
   entreprise, 
-  offres = [], 
-  candidatures = [], 
-  onAjouterOffre, 
-  onSupprimerOffre, 
   onLogout, 
-  onUpdateProfil, 
-  onChangePassword,
-  onAccepterCandidat,
-  onRefuserCandidat,
-  onSaveEvaluation,
-  darkMode  // ← Reçoit darkMode de App.jsx
+  darkMode
 }) {
-  // Theme colors basé sur darkMode (pas de state local)
+  // Token pour les appels API
+  const token = localStorage.getItem('token');
+  
+  // Theme colors basé sur darkMode
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
     text: darkMode ? '#f3f4f6' : '#1f2937',
@@ -46,6 +42,30 @@ export function DashboardEntreprise({
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatut, setFilterStatut] = useState("Tous");
+  const [loading, setLoading] = useState(true);
+  // DashboardEntreprise.jsx - Zid had les states
+const [showEditModal, setShowEditModal] = useState(false);
+const [editingOffer, setEditingOffer] = useState(null);
+const [editForm, setEditForm] = useState({
+  titre: '',
+  description: '',
+  lieu: '',
+  type: 'Stage',
+  duree: '',
+  salaire: '',
+  competences: [],
+  dateDebut: '',
+  dateFin: '',
+  niveauRequis: 'Débutant',
+  nombrePlaces: 1,
+  horaires: 'Temps plein',
+  avantages: []
+});
+const [editCompetenceInput, setEditCompetenceInput] = useState('');
+  
+  // Données API
+  const [mesOffres, setMesOffres] = useState([]);
+  const [mesCandidatures, setMesCandidatures] = useState([]);
   
   // États pour les évaluations
   const [showEvaluationModal, setShowEvaluationModal] = useState(false);
@@ -60,13 +80,6 @@ export function DashboardEntreprise({
     progression: ""
   });
   
-  // État local des candidatures
-  const [localCandidatures, setLocalCandidatures] = useState(candidatures);
-  
-  useEffect(() => {
-    setLocalCandidatures(candidatures);
-  }, [candidatures]);
-  
   // États pour le profil
   const [isEditing, setIsEditing] = useState(false);
   const [entrepriseProfil, setEntrepriseProfil] = useState({
@@ -74,8 +87,8 @@ export function DashboardEntreprise({
     email: entreprise?.email || "",
     secteur: entreprise?.secteur || "",
     description: entreprise?.description || "",
-    telephone: entreprise?.telephone || "+213 5XX XX XX XX",
-    adresse: entreprise?.adresse || "Alger, Algérie",
+    telephone: entreprise?.telephone || "",
+    adresse: entreprise?.adresse || "",
     siteWeb: entreprise?.siteWeb || "",
     nbEmployes: entreprise?.nbEmployes || ""
   });
@@ -91,25 +104,156 @@ export function DashboardEntreprise({
   
   // États pour nouvelle offre
   const [newOffre, setNewOffre] = useState({ 
-    titre: "", lieu: "Alger", duree: "6 mois", type: "Stage PFE", 
-    salaire: "", description: "", dateCreation: "", dateFin: "", periode: ""
+    titre: "", 
+    lieu: "Alger", 
+    duree: "6 mois", 
+    type: "Stage PFE", 
+    salaire: "", 
+    description: "", 
+    dateCreation: "", 
+    dateFin: "", 
+    niveauRequis: "Débutant",
+    nombrePlaces: 1,
+    horaires: "Temps plein",
+    avantages: ""
   });
   const [competenceInput, setCompetenceInput] = useState("");
+
+  
+  // ============================================
+  // CHARGEMENT DES DONNÉES DEPUIS L'API
+  // ============================================
+
+ const showNotification = useCallback((type, message) => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
+  }, []);
+  // Helper function to check token
+  const checkToken = useCallback(() => {
+    const t = localStorage.getItem('token');
+    if (!t) {
+      showNotification('error', "Session expirée, veuillez vous reconnecter");
+      setTimeout(() => onLogout(), 2000);
+      return false;
+    }
+    return true;
+  }, [onLogout]);
+
+  const fetchCompanyOffers = useCallback(async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      console.error("❌ Pas de token pour fetchCompanyOffers");
+      return;
+    }
+    
+    try {
+      console.log("📡 Appel API: getCompanyOffers");
+      const response = await api.getCompanyOffers(currentToken);
+      const data = await response.json();
+      console.log("📡 Response getCompanyOffers:", data);
+      
+      if (response.ok) {
+        setMesOffres(data.offers || []);
+      } else {
+        console.error("❌ Erreur API getCompanyOffers:", data);
+        if (response.status === 401) {
+          showNotification('error', "Session expirée, reconnectez-vous");
+          setTimeout(() => onLogout(), 2000);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement offres:', error);
+      showNotification('error', "Erreur de connexion au serveur");
+    }
+  }, [onLogout, showNotification]);
+
+  const fetchCompanyApplications = useCallback(async () => {
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      console.error("❌ Pas de token pour fetchCompanyApplications");
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      console.log("📡 Appel API: getCompanyApplications");
+      const response = await api.getCompanyApplications(currentToken);
+      const data = await response.json();
+      console.log("📡 Response getCompanyApplications:", data);
+      
+      if (response.ok) {
+        setMesCandidatures(data.applications || []);
+      } else {
+        console.error("❌ Erreur API getCompanyApplications:", data);
+        if (response.status === 401) {
+          showNotification('error', "Session expirée, reconnectez-vous");
+          setTimeout(() => onLogout(), 2000);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erreur chargement candidatures:', error);
+      showNotification('error', "Erreur de connexion au serveur");
+    } finally {
+      setLoading(false);
+    }
+  }, [onLogout, showNotification]);
+  // Ajoute cette fonction après fetchCompanyApplications
+const fetchCompanyProfile = useCallback(async () => {
+  const currentToken = localStorage.getItem('token');
+  if (!currentToken) return;
+  
+  try {
+    console.log("📡 Appel API: getCompanyProfile");
+    const response = await api.getCompanyProfile(currentToken);
+    const data = await response.json();
+    
+    if (response.ok && data.success) {
+      console.log("✅ Profil chargé:", data.company);
+      
+      // Mettre à jour les informations du profil
+      setEntrepriseProfil({
+        nom: data.company.nom || "",
+        email: data.company.email || "",
+        secteur: data.company.secteur || "",
+        description: data.company.description || "",
+        telephone: data.company.telephone || "",
+        adresse: data.company.adresse || "",
+        siteWeb: data.company.siteWeb || "",
+        nbEmployes: data.company.nbEmployes || ""
+      });
+      
+      // Charger le logo
+      if (data.company.logoPath) {
+        const logoUrl = `http://localhost:5004/uploads/companyLogos/${data.company.logoPath}`;
+        setLogoPreview(logoUrl);
+        console.log("✅ Logo chargé:", logoUrl);
+      } else {
+        setLogoPreview(null);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement profil:', error);
+  }
+}, []);
+
+ useEffect(() => {
+  const currentToken = localStorage.getItem('token');
+  if (!currentToken) {
+    console.error("❌ Aucun token trouvé!");
+    showNotification('error', "Veuillez vous reconnecter");
+    setTimeout(() => onLogout(), 2000);
+    return;
+  }
+  
+  console.log("✅ Token trouvé:", currentToken.substring(0, 20) + "...");
+  fetchCompanyOffers();
+  fetchCompanyApplications();
+  fetchCompanyProfile();  // ← AJOUTE CETTE LIGNE
+}, []);
 
   // ============================================
   // DONNÉES CALCULÉES
   // ============================================
-  const mesOffres = useMemo(() => {
-    if (!offres || !entreprise) return [];
-    return offres.filter(o => o.entrepriseId === entreprise?.id);
-  }, [offres, entreprise]);
-  
-  const mesCandidatures = useMemo(() => {
-    if (!localCandidatures || !mesOffres.length) return [];
-    const offresIds = mesOffres.map(o => o.id);
-    return localCandidatures.filter(c => offresIds.includes(c.offreId));
-  }, [localCandidatures, mesOffres]);
-
   const offresActives = useMemo(() => {
     return mesOffres.filter(o => {
       if (!o.dateFin) return true;
@@ -144,127 +288,318 @@ export function DashboardEntreprise({
   // ============================================
   // FONCTIONS
   // ============================================
-  const showNotification = useCallback((type, message) => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 3000);
-  }, []);
+ 
 
+// Fonction pour ouvrir modal de modification
+const handleEditOffer = (offer) => {
+  setEditingOffer(offer);
+  setEditForm({
+    titre: offer.titre || '',
+    description: offer.description || '',
+    lieu: offer.lieu || '',
+    type: offer.type || 'Stage',
+    duree: offer.duree || '',
+    salaire: offer.salaire || '',
+    competences: offer.competences || [],
+    dateDebut: offer.dateDebut ? offer.dateDebut.split('T')[0] : '',
+    dateFin: offer.dateFin ? offer.dateFin.split('T')[0] : '',
+    niveauRequis: offer.niveauRequis || 'Débutant',
+    nombrePlaces: offer.nombrePlaces || 1,
+    horaires: offer.horaires || 'Temps plein',
+    avantages: offer.avantages || []
+  });
+  setEditCompetenceInput((offer.competences || []).join(', '));
+  setShowEditModal(true);
+};
+
+// Fonction pour sauvegarder modification
+const handleSaveEdit = useCallback(async () => {
+  if (!checkToken()) return;
+  
+  try {
+    const offreData = {
+      titre: editForm.titre,
+      description: editForm.description,
+      lieu: editForm.lieu,
+      type: editForm.type,
+      duree: editForm.duree,
+      salaire: editForm.salaire || "Non spécifié",
+      competences: editCompetenceInput.split(",").map(c => c.trim()).filter(c => c),
+      dateDebut: editForm.dateDebut,
+      dateFin: editForm.dateFin,
+      niveauRequis: editForm.niveauRequis,
+      nombrePlaces: parseInt(editForm.nombrePlaces) || 1,
+      horaires: editForm.horaires,
+      avantages: editForm.avantages
+    };
+    
+    const response = await api.updateOffer(token, editingOffer.id, offreData);
+    const data = await response.json();
+    
+    if (response.ok) {
+      showNotification('success', "✅ Offre modifiée avec succès");
+      setShowEditModal(false);
+      fetchCompanyOffers();
+    } else {
+      showNotification('error', data.message || "❌ Erreur lors de la modification");
+    }
+  } catch (error) {
+    console.error('Erreur modification:', error);
+    showNotification('error', "❌ Erreur de connexion");
+  }
+}, [editForm, editCompetenceInput, editingOffer, token, showNotification, checkToken, fetchCompanyOffers]);
   const handleInputChange = useCallback((e) => {
     setEntrepriseProfil(prev => ({ ...prev, [e.target.name]: e.target.value }));
   }, []);
 
-  const handleSaveProfil = useCallback(() => {
-    if (onUpdateProfil) onUpdateProfil(entrepriseProfil);
-    setIsEditing(false);
-    showNotification('success', "✅ Profil mis à jour avec succès");
-  }, [entrepriseProfil, onUpdateProfil, showNotification]);
-
-  const handleLogoUpload = useCallback((e) => {
-    const file = e.target.files[0];
-    if (file && file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024) {
-      const reader = new FileReader();
-      reader.onloadend = () => setLogoPreview(reader.result);
-      reader.readAsDataURL(file);
-      showNotification('success', "✅ Logo mis à jour");
+ const handleSaveProfil = useCallback(async () => {
+  if (!checkToken()) return;
+  
+  try {
+    const response = await api.updateCompanyProfile(token, entrepriseProfil);
+    const data = await response.json();
+    
+    if (response.ok) {
+      showNotification('success', "✅ Profil mis à jour avec succès");
+      setIsEditing(false);
+      fetchCompanyProfile(); // ← AJOUTE CETTE LIGNE pour recharger
     } else {
-      showNotification('error', "❌ Image invalide ou trop volumineuse (max 5MB)");
+      showNotification('error', data.message || "Erreur lors de la mise à jour");
     }
-  }, [showNotification]);
+  } catch (error) {
+    console.error(error);
+    showNotification('error', "❌ Erreur de connexion");
+  }
+}, [entrepriseProfil, token, showNotification, checkToken, fetchCompanyProfile]);
 
-  const handleAddOffre = useCallback(() => {
-    if (!newOffre.titre || !newOffre.salaire || !newOffre.dateCreation || !newOffre.dateFin) {
+ const handleLogoUpload = useCallback(async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  if (!file.type.startsWith('image/')) {
+    showNotification('error', "❌ Veuillez sélectionner une image");
+    return;
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    showNotification('error', "❌ Image trop volumineuse (max 5MB)");
+    return;
+  }
+  
+  try {
+    const formData = new FormData();
+    formData.append('logo', file);
+    
+    const response = await fetch('http://localhost:5004/api/companies/upload-logo', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      showNotification('success', "✅ Logo mis à jour avec succès");
+      // Recharger le profil pour avoir le nouveau logoPath
+      await fetchCompanyProfile();
+    } else {
+      showNotification('error', data.message || "❌ Erreur lors de l'upload");
+    }
+  } catch (error) {
+    console.error('Erreur upload:', error);
+    showNotification('error', "❌ Erreur de connexion");
+  }
+}, [token, showNotification, fetchCompanyProfile]);
+  // Créer une offre via API
+  const handleAddOffre = useCallback(async () => {
+    if (!checkToken()) return;
+    
+    if (!newOffre.titre || !newOffre.description) {
       showNotification('error', "❌ Veuillez remplir tous les champs obligatoires");
       return;
     }
     
-    const offreToAdd = {
-      id: Date.now(),
-      ...newOffre,
-      entreprise: entrepriseProfil.nom,
-      entrepriseId: entreprise?.id,
-      datePublication: new Date().toLocaleDateString('fr-FR'),
-      statut: "active",
-      competences: competenceInput.split(",").map(c => c.trim()).filter(c => c)
-    };
-    if (onAjouterOffre) onAjouterOffre(offreToAdd);
-    setShowAddModal(false);
-    setNewOffre({ titre: "", lieu: "Alger", duree: "6 mois", type: "Stage PFE", salaire: "", description: "", dateCreation: "", dateFin: "", periode: "" });
-    setCompetenceInput("");
-    showNotification('success', "✅ Offre publiée avec succès");
-  }, [newOffre, competenceInput, entrepriseProfil.nom, entreprise?.id, onAjouterOffre, showNotification]);
+    try {
+      const offreData = {
+        titre: newOffre.titre,
+        description: newOffre.description,
+        lieu: newOffre.lieu,
+        type: newOffre.type,
+        duree: newOffre.duree,
+        salaire: newOffre.salaire || "Non spécifié",
+        competences: competenceInput.split(",").map(c => c.trim()).filter(c => c),
+        dateDebut: newOffre.dateCreation,
+        dateFin: newOffre.dateFin,
+        niveauRequis: newOffre.niveauRequis,
+        nombrePlaces: parseInt(newOffre.nombrePlaces) || 1,
+        horaires: newOffre.horaires || "Temps plein",
+        avantages: newOffre.avantages ? newOffre.avantages.split(",").map(a => a.trim()) : []
+      };
+      
+      console.log("📤 Envoi des données:", offreData);
+      
+      const response = await api.createOffer(token, offreData);
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Offre publiée avec succès");
+        setShowAddModal(false);
+        setNewOffre({ 
+          titre: "", lieu: "Alger", duree: "6 mois", type: "Stage PFE", 
+          salaire: "", description: "", dateCreation: "", dateFin: "",
+          niveauRequis: "Débutant", nombrePlaces: 1, horaires: "Temps plein", avantages: ""
+        });
+        setCompetenceInput("");
+        fetchCompanyOffers();
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors de la publication");
+      }
+    } catch (error) {
+      console.error('Erreur création offre:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [newOffre, competenceInput, token, showNotification, checkToken, fetchCompanyOffers]);
+
+  // Supprimer une offre via API
+  const handleSupprimerOffre = useCallback(async (offreId) => {
+    if (!checkToken()) return;
+    if (!confirm("Voulez-vous vraiment supprimer cette offre ?")) return;
+    
+    try {
+      const response = await api.deleteOffer(token, offreId);
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Offre supprimée avec succès");
+        fetchCompanyOffers();
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors de la suppression");
+      }
+    } catch (error) {
+      console.error('Erreur suppression offre:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, showNotification, checkToken, fetchCompanyOffers]);
 
   const handleViewCV = useCallback((candidature) => {
     setSelectedCandidature(candidature);
     setShowCvModal(true);
   }, []);
 
-  const updateCandidatureStatut = useCallback((candidatureId, newStatut) => {
-    setLocalCandidatures(prev => 
-      prev.map(c => 
-        c.id === candidatureId ? { ...c, statut: newStatut } : c
-      )
-    );
-  }, []);
-
-  const updateCandidatureEvaluation = useCallback((candidatureId, evaluationData) => {
-    setLocalCandidatures(prev => 
-      prev.map(c => 
-        c.id === candidatureId ? { ...c, evaluation: evaluationData } : c
-      )
-    );
-  }, []);
-
   const handleAccepterCandidat = useCallback(async (candidature) => {
+    if (!checkToken()) return;
+    
     try {
-      if (onAccepterCandidat) {
-        await onAccepterCandidat(candidature.id);
+      const response = await api.updateApplicationStatus(candidature.id, token, "acceptee");
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', `✅ Candidature de ${candidature.etudiantNom} acceptée !`);
+        fetchCompanyApplications();
+        setShowCvModal(false);
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors de l'acceptation");
       }
-      updateCandidatureStatut(candidature.id, "acceptee");
-      showNotification('success', `✅ Candidature de ${candidature.etudiantNom} acceptée !`);
-      setShowCvModal(false);
     } catch (error) {
-      showNotification('error', "❌ Erreur lors de l'acceptation");
+      console.error(error);
+      showNotification('error', "❌ Erreur de connexion");
     }
-  }, [onAccepterCandidat, updateCandidatureStatut, showNotification]);
+  }, [token, showNotification, checkToken, fetchCompanyApplications]);
 
   const handleRefuserCandidat = useCallback(async (candidature) => {
+    if (!checkToken()) return;
+    
     try {
-      if (onRefuserCandidat) {
-        await onRefuserCandidat(candidature.id);
+      const response = await api.updateApplicationStatus(candidature.id, token, "refusee");
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', `❌ Candidature de ${candidature.etudiantNom} refusée.`);
+        fetchCompanyApplications();
+        setShowCvModal(false);
+      } else {
+        showNotification('error', data.message || "❌ Erreur lors du refus");
       }
-      updateCandidatureStatut(candidature.id, "refusee");
-      showNotification('success', `❌ Candidature de ${candidature.etudiantNom} refusée.`);
-      setShowCvModal(false);
     } catch (error) {
-      showNotification('error', "❌ Erreur lors du refus");
+      console.error(error);
+      showNotification('error', "❌ Erreur de connexion");
     }
-  }, [onRefuserCandidat, updateCandidatureStatut, showNotification]);
+  }, [token, showNotification, checkToken, fetchCompanyApplications]);
 
-  const handleSaveEvaluation = useCallback(() => {
-    if (selectedStagiaire) {
-      const evaluationData = {
-        ...evaluation,
-        dateEvaluation: new Date().toLocaleDateString('fr-FR'),
-        evaluateur: entrepriseProfil.nom
-      };
-      
-      updateCandidatureEvaluation(selectedStagiaire.id, evaluationData);
-      
-      if (onSaveEvaluation) {
-        onSaveEvaluation(selectedStagiaire.id, evaluationData);
-      }
+ const handleSaveEvaluation = useCallback(async () => {
+  if (!checkToken()) return;
+  
+  if (!selectedStagiaire) return;
+  
+  // ✅ CORRECTION : utiliser l'ID de la candidature (selectedStagiaire.id)
+  // au lieu de studentId et offerId
+  const evaluationData = {
+    ponctualite: evaluation.ponctualite,
+    qualiteTravail: evaluation.qualiteTravail,
+    autonomie: evaluation.autonomie,
+    espritEquipe: evaluation.espritEquipe,
+    note: evaluation.note,
+    commentaire: evaluation.commentaire,
+    progression: evaluation.progression
+  };
+  
+  console.log("📤 Envoi évaluation pour candidature ID:", selectedStagiaire.id);
+  console.log("📤 Données:", evaluationData);
+  
+  try {
+    // ✅ CORRECTION : Appeler la bonne URL avec l'ID de la candidature
+    const response = await api.saveEvaluation(token, selectedStagiaire.id, evaluationData);
+    const data = await response.json();
+    
+    console.log("📥 Réponse:", data);
+    
+    if (response.ok) {
+      // Mettre à jour localement
+      setMesCandidatures(prev => 
+        prev.map(c => 
+          c.id === selectedStagiaire.id 
+            ? { 
+                ...c, 
+                evaluation: {
+                  ponctualite: evaluation.ponctualite,
+                  qualiteTravail: evaluation.qualiteTravail,
+                  autonomie: evaluation.autonomie,
+                  espritEquipe: evaluation.espritEquipe,
+                  note: evaluation.note,
+                  commentaire: evaluation.commentaire,
+                  progression: evaluation.progression,
+                  dateEvaluation: new Date().toLocaleDateString('fr-FR'),
+                  evaluateur: entrepriseProfil.nom
+                }
+              } 
+            : c
+        )
+      );
       
       showNotification('success', `✅ Évaluation de ${selectedStagiaire.etudiantNom} enregistrée avec succès`);
       setShowEvaluationModal(false);
+      
+      // Recharger les candidatures pour avoir les données à jour
+      fetchCompanyApplications();
+    } else {
+      showNotification('error', data.message || "❌ Erreur lors de l'enregistrement");
     }
-  }, [evaluation, selectedStagiaire, updateCandidatureEvaluation, onSaveEvaluation, showNotification, entrepriseProfil.nom]);
+  } catch (error) {
+    console.error('Erreur:', error);
+    showNotification('error', "❌ Erreur de connexion");
+  }
+}, [evaluation, selectedStagiaire, entrepriseProfil.nom, token, showNotification, checkToken, fetchCompanyApplications]);
 
   const handlePasswordChange = useCallback((e) => {
     setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
   }, []);
 
-  const handleSubmitPasswordChange = useCallback(() => {
+  const handleSubmitPasswordChange = useCallback(async () => {
+    if (!checkToken()) return;
+    
     const errors = {};
     if (!passwordData.ancienMotDePasse) errors.ancienMotDePasse = "Champ requis";
     if (!passwordData.nouveauMotDePasse) errors.nouveauMotDePasse = "Champ requis";
@@ -276,15 +611,24 @@ export function DashboardEntreprise({
       return;
     }
     
-    if (passwordData.ancienMotDePasse !== entreprise?.password && passwordData.ancienMotDePasse !== "entreprise123") {
-      showNotification('error', "❌ Ancien mot de passe incorrect");
-      return;
+    try {
+      const response = await api.changePassword(token, {
+        ancienMotDePasse: passwordData.ancienMotDePasse,
+        nouveauMotDePasse: passwordData.nouveauMotDePasse
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        showNotification('success', "✅ Mot de passe changé");
+        setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
+      } else {
+        showNotification('error', data.message || "❌ Ancien mot de passe incorrect");
+      }
+    } catch (error) {
+      console.error(error);
+      showNotification('error', "❌ Erreur de connexion");
     }
-    
-    if (onChangePassword) onChangePassword(passwordData.nouveauMotDePasse);
-    setPasswordData({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
-    showNotification('success', "✅ Mot de passe changé");
-  }, [passwordData, entreprise, onChangePassword, showNotification]);
+  }, [passwordData, token, showNotification, checkToken]);
 
   const menuItems = [
     { id: "profil", label: "Mon profil", icon: <User size={18} /> },
@@ -309,10 +653,13 @@ export function DashboardEntreprise({
     return titles[id] || 'Dashboard';
   };
 
-  if (!entreprise) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: theme.bg }}>
-        <div className="text-center"><div className="spinner mx-auto"></div><p className="mt-4" style={{ color: theme.text }}>Chargement...</p></div>
+        <div className="text-center">
+          <div className="spinner mx-auto"></div>
+          <p className="mt-4" style={{ color: theme.text }}>Chargement...</p>
+        </div>
       </div>
     );
   }
@@ -362,20 +709,6 @@ export function DashboardEntreprise({
                   </span>
                 </div>
               </div>
-
-              <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
-                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}><FileText size={16} className="text-emerald-600" /> CV du candidat</h4>
-                {selectedCandidature.cvContent ? (
-                  <pre className="text-sm whitespace-pre-wrap p-4 rounded-lg max-h-96 overflow-y-auto border" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
-                    {selectedCandidature.cvContent}
-                  </pre>
-                ) : (
-                  <div className="text-center py-8 rounded-lg" style={{ backgroundColor: theme.card }}>
-                    <FileText size={48} className="mx-auto mb-2" style={{ color: theme.textLight }} />
-                    <p style={{ color: theme.textLight }}>Aucun CV disponible</p>
-                  </div>
-                )}
-              </div>
             </div>
             
             {selectedCandidature.statut === "en_attente" && (
@@ -406,7 +739,7 @@ export function DashboardEntreprise({
         </div>
       )}
 
-      {/* MODAL ÉVALUATION CANDIDAT */}
+      {/* MODAL ÉVALUATION */}
       {showEvaluationModal && selectedStagiaire && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: theme.card }}>
@@ -576,25 +909,6 @@ export function DashboardEntreprise({
                   style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}
                 />
               </div>
-
-              <div className="rounded-xl p-4" style={{ backgroundColor: theme.cardAlt }}>
-                <h4 className="font-semibold mb-3 flex items-center gap-2" style={{ color: theme.text }}>
-                  <PieChart size={16} className="text-emerald-500" />
-                  Résumé de l'évaluation
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <span className="text-gray-500">Moyenne:</span>
-                    <p className="font-bold text-emerald-600">
-                      {Math.round((evaluation.ponctualite + evaluation.qualiteTravail + evaluation.autonomie + evaluation.espritEquipe) / 4)}/20
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Note finale:</span>
-                    <p className="font-bold text-yellow-600">{evaluation.note}/5 ⭐</p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="border-t p-6 flex gap-3" style={{ borderColor: theme.border }}>
@@ -616,64 +930,63 @@ export function DashboardEntreprise({
         </div>
       )}
 
- {/* SIDEBAR */}
-<div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
-  <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
-    {/* Logo */}
-    <div className="flex items-center justify-center mb-4">
-      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
-        <Building size={30} className="text-white" />
-      </div>
-    </div>
-    
-    <div className="text-center">
-      <h3 className="text-white font-semibold text-base">
-        {entrepriseProfil.nom || "Entreprise"}
-      </h3>
-      <div className="flex items-center justify-center gap-2 mt-1.5">
-        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
-        <p className="text-emerald-400 text-xs font-medium">
-          {entrepriseProfil.secteur || "Entreprise"}
-        </p>
-        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
-      </div>
-    </div>
-  </div>
-  
-  <nav className="p-4 space-y-1">
-    {menuItems.map(item => (
-      <button 
-        key={item.id} 
-        onClick={() => setActiveMenu(item.id)} 
-        className={`
-          w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
-          ${activeMenu === item.id 
-            ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
-            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
-          }
-        `}
-      >
-        <div className={`transition-transform duration-200 group-hover:scale-105 ${activeMenu === item.id ? "text-emerald-400" : ""}`}>
-          {item.icon}
+      {/* SIDEBAR */}
+      <div className="w-72 flex-shrink-0" style={{ backgroundColor: theme.sidebar }}>
+        <div className="p-6 border-b" style={{ borderColor: '#374151' }}>
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
+              <Building size={30} className="text-white" />
+            </div>
+          </div>
+          
+          <div className="text-center">
+            <h3 className="text-white font-semibold text-base">
+              {entrepriseProfil.nom || "Entreprise"}
+            </h3>
+            <div className="flex items-center justify-center gap-2 mt-1.5">
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+              <p className="text-emerald-400 text-xs font-medium">
+                {entrepriseProfil.secteur || "Entreprise"}
+              </p>
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+            </div>
+          </div>
         </div>
-        <span className="text-sm font-medium">{item.label}</span>
-        {activeMenu === item.id && (
-          <div className="ml-auto w-1 h-4 bg-emerald-400 rounded-full"></div>
-        )}
-      </button>
-    ))}
-    
-    <div className="h-px bg-gray-700 my-3"></div>
-    
-    <button 
-      onClick={onLogout} 
-      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 group"
-    >
-      <LogOut size={18} className="group-hover:scale-105 transition-transform" />
-      <span className="text-sm font-medium">Déconnexion</span>
-    </button>
-  </nav>
-</div>
+        
+        <nav className="p-4 space-y-1">
+          {menuItems.map(item => (
+            <button 
+              key={item.id} 
+              onClick={() => setActiveMenu(item.id)} 
+              className={`
+                w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group
+                ${activeMenu === item.id 
+                  ? "bg-gray-800 text-white border-l-2 border-emerald-400" 
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                }
+              `}
+            >
+              <div className={`transition-transform duration-200 group-hover:scale-105 ${activeMenu === item.id ? "text-emerald-400" : ""}`}>
+                {item.icon}
+              </div>
+              <span className="text-sm font-medium">{item.label}</span>
+              {activeMenu === item.id && (
+                <div className="ml-auto w-1 h-4 bg-emerald-400 rounded-full"></div>
+              )}
+            </button>
+          ))}
+          
+          <div className="h-px bg-gray-700 my-3"></div>
+          
+          <button 
+            onClick={onLogout} 
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 group"
+          >
+            <LogOut size={18} className="group-hover:scale-105 transition-transform" />
+            <span className="text-sm font-medium">Déconnexion</span>
+          </button>
+        </nav>
+      </div>
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -763,8 +1076,8 @@ export function DashboardEntreprise({
                             <span className="text-emerald-600 font-medium"><DollarSign size={14} /> {offre.salaire}</span>
                           </div>
                           <div className="flex gap-4 mt-2 text-xs" style={{ color: theme.textLight }}>
-                            <span className="flex items-center gap-1"><Calendar size={12} /> Début: {offre.dateCreation}</span>
-                            <span className="flex items-center gap-1"><Calendar size={12} /> Fin: {offre.dateFin}</span>
+                            <span className="flex items-center gap-1"><Calendar size={12} /> Début: {offre.dateDebut ? new Date(offre.dateDebut).toLocaleDateString() : "Non spécifiée"}</span>
+                            <span className="flex items-center gap-1"><Calendar size={12} /> Fin: {offre.dateFin ? new Date(offre.dateFin).toLocaleDateString() : "Non spécifiée"}</span>
                           </div>
                           {offre.description && <p className="text-sm mt-2 line-clamp-2" style={{ color: theme.textLight }}>{offre.description}</p>}
                           {offre.competences && offre.competences.length > 0 && (
@@ -773,7 +1086,14 @@ export function DashboardEntreprise({
                             </div>
                           )}
                         </div>
-                        <button onClick={() => onSupprimerOffre && onSupprimerOffre(offre.id)} className="text-rose-400 hover:text-rose-600 p-2 transition"><Trash2 size={18} /></button>
+                        <div className="flex gap-2">
+  <button onClick={() => handleEditOffer(offre)} className="text-blue-400 hover:text-blue-600 p-2 transition">
+    <Edit2 size={18} />
+  </button>
+  <button onClick={() => handleSupprimerOffre(offre.id)} className="text-rose-400 hover:text-rose-600 p-2 transition">
+    <Trash2 size={18} />
+  </button>
+</div>
                       </div>
                     </div>
                   </div>
@@ -825,12 +1145,10 @@ export function DashboardEntreprise({
                         </div>
                         <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre || "Offre"}</p>
                         <p className="text-sm flex items-center gap-1 mt-1" style={{ color: theme.textLight }}><Mail size={12} /> {c.email || "Email non renseigné"}</p>
-                        <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date || new Date().toLocaleDateString()}</p>
+                        <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date ? new Date(c.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => handleViewCV(c)} className="px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
-                          <Eye size={14} /> Voir CV
-                        </button>
+                        
                         {c.statut === "en_attente" && (
                           <>
                             <button 
@@ -995,25 +1313,203 @@ export function DashboardEntreprise({
             </div>
           )}
 
-          {/* STATISTIQUES - Version raccourcie car le code est long */}
-          {activeMenu === "statistiques" && (
-            <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div><p className="text-sm" style={{ color: theme.textLight }}>Total offres</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p></div>
+     {activeMenu === "statistiques" && (
+  <div className="space-y-6">
+    {/* Cartes KPI principales */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Total offres</p>
+        <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesOffres.length}</p>
+        <p className="text-xs text-emerald-500 mt-2">+{offresActives} actives</p>
+      </div>
+      <div className="rounded-xl p-5 shadow-sm border-l-4 border-blue-400" style={{ backgroundColor: theme.card }}>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Total candidatures</p>
+        <p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p>
+        <p className="text-xs text-blue-500 mt-2">{candidaturesEnAttente} en attente</p>
+      </div>
+      <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Taux d'acceptation</p>
+        <p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p>
+        <p className="text-xs text-gray-500 mt-2">{candidaturesAcceptees} acceptés</p>
+      </div>
+      <div className="rounded-xl p-5 shadow-sm border-l-4 border-purple-400" style={{ backgroundColor: theme.card }}>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Délai réponse moyen</p>
+        <p className="text-3xl font-bold text-purple-600">3.5j</p>
+        <p className="text-xs text-gray-500 mt-2">Temps de traitement</p>
+      </div>
+    </div>
+
+{/* Version simple - barres horizontales */}
+<div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+  <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+    <TrendingUp size={18} className="text-emerald-500" />
+    Évolution des candidatures
+  </h3>
+  <div className="space-y-4">
+    {(() => {
+      // Grouper par mois
+      const moisMap = new Map();
+      const moisCourts = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+      
+      mesCandidatures.forEach(c => {
+        const dateValue = c.createdAt || c.date;
+        if (!dateValue) return;
+        
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return;
+        
+        const key = `${moisCourts[date.getMonth()]} ${date.getFullYear()}`;
+        if (!moisMap.has(key)) {
+          moisMap.set(key, { mois: key, total: 0, acceptees: 0 });
+        }
+        const data = moisMap.get(key);
+        data.total++;
+        if (c.statut === 'acceptee') data.acceptees++;
+      });
+      
+      const data = Array.from(moisMap.values()).slice(-6);
+      const maxTotal = Math.max(...data.map(d => d.total), 1);
+      
+      return data.length > 0 ? data.map((item, idx) => (
+        <div key={idx}>
+          <div className="flex justify-between mb-1">
+            <span className="text-sm font-medium" style={{ color: theme.text }}>{item.mois}</span>
+            <div className="flex gap-3">
+              <span className="text-xs text-emerald-600">{item.acceptees} acceptés</span>
+              <span className="text-xs text-gray-500">{item.total} total</span>
+            </div>
+          </div>
+          <div className="flex gap-1 h-8">
+            <div 
+              className="bg-emerald-500 rounded-l-lg flex items-center justify-end px-2 text-white text-xs font-semibold"
+              style={{ width: `${(item.total / maxTotal) * 100}%` }}
+            >
+              {item.total}
+            </div>
+          </div>
+        </div>
+      )) : (
+        <div className="text-center py-8 text-gray-500">
+          Aucune candidature trouvée
+        </div>
+      );
+    })()}
+  </div>
+</div>
+    {/* Top offres */}
+    <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+      <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+        <Award size={18} className="text-yellow-500" />
+        Top offres les plus demandées
+      </h3>
+      <div className="space-y-3">
+        {mesOffres.length > 0 ? (
+          mesOffres.slice(0, 5).map((offre, index) => {
+            const candidaturesCount = mesCandidatures.filter(c => c.offerId === offre.id).length;
+            return (
+              <div key={offre.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: theme.cardAlt }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-gray-400">#{index + 1}</span>
+                  <div>
+                    <p className="font-medium" style={{ color: theme.text }}>{offre.titre}</p>
+                    <p className="text-xs" style={{ color: theme.textLight }}>{offre.type || 'Stage'}</p>
+                  </div>
                 </div>
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div><p className="text-sm" style={{ color: theme.textLight }}>Offres actives</p><p className="text-3xl font-bold text-green-600">{offresActives}</p></div>
-                </div>
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div><p className="text-sm" style={{ color: theme.textLight }}>Total candidatures</p><p className="text-3xl font-bold" style={{ color: theme.text }}>{mesCandidatures.length}</p></div>
-                </div>
-                <div className="rounded-xl p-5 shadow-sm border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-                  <div><p className="text-sm" style={{ color: theme.textLight }}>Taux d'acceptation</p><p className="text-3xl font-bold text-emerald-600">{tauxAcceptation}%</p></div>
+                <div className="text-right">
+                  <p className="font-bold text-emerald-600">{candidaturesCount}</p>
+                  <p className="text-xs text-gray-500">candidatures</p>
                 </div>
               </div>
+            );
+          })
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            Aucune offre publiée
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Répartition par statut */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+        <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+          <PieChart size={18} className="text-emerald-500" />
+          Répartition des candidatures
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>Acceptés</span>
+              <span className="text-sm font-semibold text-emerald-600">{candidaturesAcceptees}</span>
             </div>
-          )}
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesAcceptees / mesCandidatures.length) * 100 : 0}%` }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>Refusés</span>
+              <span className="text-sm font-semibold text-rose-600">{candidaturesRefusees}</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesRefusees / mesCandidatures.length) * 100 : 0}%` }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>En attente</span>
+              <span className="text-sm font-semibold text-yellow-600">{candidaturesEnAttente}</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-yellow-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? (candidaturesEnAttente / mesCandidatures.length) * 100 : 0}%` }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+        <h3 className="font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+          <BarChart3 size={18} className="text-emerald-500" />
+          Performance globale
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>Taux de conversion</span>
+              <span className="text-sm font-semibold text-emerald-600">{tauxAcceptation}%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${tauxAcceptation}%` }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>Taux de réponse</span>
+              <span className="text-sm font-semibold text-blue-600">
+                {mesCandidatures.length > 0 ? Math.round(((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100) : 0}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${mesCandidatures.length > 0 ? ((candidaturesAcceptees + candidaturesRefusees) / mesCandidatures.length) * 100 : 0}%` }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-1">
+              <span className="text-sm" style={{ color: theme.textLight }}>Offres pourvues</span>
+              <span className="text-sm font-semibold text-purple-600">
+                {mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="bg-purple-500 h-2 rounded-full" style={{ width: `${mesOffres.length > 0 ? (mesOffres.filter(o => mesCandidatures.some(c => c.offerId === o.id && c.statut === 'acceptee')).length / mesOffres.length) * 100 : 0}%` }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       
           {/* MOT DE PASSE */}
           {activeMenu === "changePassword" && (
@@ -1043,7 +1539,7 @@ export function DashboardEntreprise({
                   </div>
                   <div className="rounded-xl p-4 border-l-4 border-emerald-500" style={{ backgroundColor: theme.cardAlt }}>
                     <h4 className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-2"><ExternalLink size={16} /> Support technique</h4>
-                    <p className="text-sm" style={{ color: theme.textLight }}>support@stageflow.dz</p>
+                    <p className="text-sm" style={{ color: theme.textLight }}>support@stag.io</p>
                   </div>
                 </div>
               </div>
@@ -1056,24 +1552,113 @@ export function DashboardEntreprise({
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
-            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}><h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une offre</h3><button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button></div>
+            <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+              <h3 className="font-bold text-lg" style={{ color: theme.text }}>📢 Publier une offre</h3>
+              <button onClick={() => setShowAddModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><X size={20} style={{ color: theme.text }} /></button>
+            </div>
             <div className="p-6 space-y-4">
               <input type="text" placeholder="Titre du poste *" value={newOffre.titre} onChange={(e) => setNewOffre({...newOffre, titre: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-              <div className="grid grid-cols-2 gap-3"><input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /><input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} /></div>
+              <input type="text" placeholder="Lieu *" value={newOffre.lieu} onChange={(e) => setNewOffre({...newOffre, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <div className="grid grid-cols-2 gap-3">
+                <select value={newOffre.type} onChange={(e) => setNewOffre({...newOffre, type: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+                  <option value="Stage PFE">Stage PFE</option>
+                  <option value="Stage">Stage classique</option>
+                  <option value="Alternance">Alternance</option>
+                  <option value="CDI">CDI</option>
+                  <option value="CDD">CDD</option>
+                </select>
+                <select value={newOffre.duree} onChange={(e) => setNewOffre({...newOffre, duree: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+                  <option value="1-3 mois">1-3 mois</option>
+                  <option value="3-6 mois">3-6 mois</option>
+                  <option value="6-12 mois">6-12 mois</option>
+                  <option value="12+ mois">12+ mois</option>
+                </select>
+              </div>
+              <input type="text" placeholder="Salaire" value={newOffre.salaire} onChange={(e) => setNewOffre({...newOffre, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="date" placeholder="Date début *" value={newOffre.dateCreation} onChange={(e) => setNewOffre({...newOffre, dateCreation: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+                <input type="date" placeholder="Date fin *" value={newOffre.dateFin} onChange={(e) => setNewOffre({...newOffre, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              </div>
               <textarea placeholder="Description détaillée *" rows="5" value={newOffre.description} onChange={(e) => setNewOffre({...newOffre, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
-              <div className="flex gap-3 pt-2"><button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button><button onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button></div>
+              <input type="text" placeholder="Compétences (séparées par des virgules)" value={competenceInput} onChange={(e) => setCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              <div className="grid grid-cols-2 gap-3">
+                <select value={newOffre.niveauRequis} onChange={(e) => setNewOffre({...newOffre, niveauRequis: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+                  <option value="Débutant">Débutant</option>
+                  <option value="Intermédiaire">Intermédiaire</option>
+                  <option value="Confirmé">Confirmé</option>
+                  <option value="Expert">Expert</option>
+                </select>
+                <input type="number" placeholder="Nombre de places" value={newOffre.nombrePlaces} onChange={(e) => setNewOffre({...newOffre, nombrePlaces: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={handleAddOffre} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Publier</button>
+                <button onClick={() => setShowAddModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
-        .animate-slide-in { animation: slide-in 0.3s ease-out; }
-        .spinner { border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #10b981; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      `}</style>
+      {/* MODAL MODIFIER OFFRE */}
+{showEditModal && editingOffer && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" style={{ backgroundColor: theme.card }}>
+      <div className="sticky top-0 border-b px-6 py-4 flex justify-between items-center" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+        <h3 className="font-bold text-lg" style={{ color: theme.text }}>✏️ Modifier l'offre</h3>
+        <button onClick={() => setShowEditModal(false)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+          <X size={20} style={{ color: theme.text }} />
+        </button>
+      </div>
+      <div className="p-6 space-y-4">
+        <input type="text" placeholder="Titre du poste *" value={editForm.titre} onChange={(e) => setEditForm({...editForm, titre: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        <input type="text" placeholder="Lieu *" value={editForm.lieu} onChange={(e) => setEditForm({...editForm, lieu: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        <div className="grid grid-cols-2 gap-3">
+          <select value={editForm.type} onChange={(e) => setEditForm({...editForm, type: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+            <option value="Stage PFE">Stage PFE</option>
+            <option value="Stage">Stage classique</option>
+            <option value="Alternance">Alternance</option>
+            <option value="CDI">CDI</option>
+            <option value="CDD">CDD</option>
+          </select>
+          <select value={editForm.duree} onChange={(e) => setEditForm({...editForm, duree: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+            <option value="1-3 mois">1-3 mois</option>
+            <option value="3-6 mois">3-6 mois</option>
+            <option value="6-12 mois">6-12 mois</option>
+            <option value="12+ mois">12+ mois</option>
+          </select>
+        </div>
+        <input type="text" placeholder="Salaire" value={editForm.salaire} onChange={(e) => setEditForm({...editForm, salaire: e.target.value})} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        <div className="grid grid-cols-2 gap-3">
+          <input type="date" placeholder="Date début" value={editForm.dateDebut} onChange={(e) => setEditForm({...editForm, dateDebut: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+          <input type="date" placeholder="Date fin" value={editForm.dateFin} onChange={(e) => setEditForm({...editForm, dateFin: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        </div>
+        <textarea placeholder="Description détaillée *" rows="5" value={editForm.description} onChange={(e) => setEditForm({...editForm, description: e.target.value})} className="w-full p-2 border rounded-xl resize-none" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}></textarea>
+        <input type="text" placeholder="Compétences (séparées par des virgules)" value={editCompetenceInput} onChange={(e) => setEditCompetenceInput(e.target.value)} className="w-full p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        <div className="grid grid-cols-2 gap-3">
+          <select value={editForm.niveauRequis} onChange={(e) => setEditForm({...editForm, niveauRequis: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }}>
+            <option value="Débutant">Débutant</option>
+            <option value="Intermédiaire">Intermédiaire</option>
+            <option value="Confirmé">Confirmé</option>
+            <option value="Expert">Expert</option>
+          </select>
+          <input type="number" placeholder="Nombre de places" value={editForm.nombrePlaces} onChange={(e) => setEditForm({...editForm, nombrePlaces: e.target.value})} className="p-2 border rounded-xl" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        </div>
+        <div className="flex gap-3 pt-2">
+          <button onClick={handleSaveEdit} className="flex-1 bg-emerald-500 text-white py-2 rounded-xl font-semibold hover:bg-emerald-600">Enregistrer</button>
+          <button onClick={() => setShowEditModal(false)} className="flex-1 py-2 rounded-xl font-semibold" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+      <style>{`
+  @keyframes slide-in { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+  .animate-slide-in { animation: slide-in 0.3s ease-out; }
+  .spinner { border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #10b981; width: 40px; height: 40px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+`}</style>
     </div>
   );
 }
