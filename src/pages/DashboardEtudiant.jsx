@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
-  User, Briefcase, Send, Heart, Star, Settings, FileText,Bell, Phone,
+  User, Briefcase, Send, Heart, Star, Settings, FileText, Bell, Phone,
   LogOut, MapPin, Clock, DollarSign, Upload, Camera, Save,
   X, CheckCircle, AlertCircle, Key, Download, FilePlus, Edit, Building2, Search,
-  Filter, SlidersHorizontal, Plus, Trash2,Calendar, XCircle,Mail,HelpCircle, MessageCircle
+  Filter, SlidersHorizontal, Plus, Trash2, Calendar, XCircle, Mail, HelpCircle, 
+  MessageCircle, TrendingUp, Users
 } from "lucide-react";
 import { api } from '../api';
 
@@ -193,12 +194,15 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
   const [candidatures, setCandidatures] = useState([]);
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem('token');
+  
   // États pour la modale de confirmation de suppression
-const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
-const [candidatureToDelete, setCandidatureToDelete] = useState(null);
-// États pour les évaluations reçues
-const [mesEvaluations, setMesEvaluations] = useState([]);
-const [loadingEvaluations, setLoadingEvaluations] = useState(false);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [candidatureToDelete, setCandidatureToDelete] = useState(null);
+  
+  // États pour les évaluations reçues
+  const [mesEvaluations, setMesEvaluations] = useState([]);
+  const [loadingEvaluations, setLoadingEvaluations] = useState(false);
+  
   // Thème basé sur darkMode
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
@@ -267,7 +271,7 @@ const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState({});
 
   // ============================================
-  // FONCTIONS (déclarées AVANT d'être utilisées)
+  // FONCTIONS
   // ============================================
   const showNotification = useCallback((type, message) => {
     setNotification({ show: true, message, type });
@@ -385,24 +389,30 @@ const [loadingEvaluations, setLoadingEvaluations] = useState(false);
     }
   }, [favoris, addToFavorites, removeFromFavorites]);
 
-  // Charger les évaluations de l'étudiant
-const fetchMesEvaluations = useCallback(async () => {
-  if (!token) return;
-  
-  setLoadingEvaluations(true);
-  try {
-    const response = await api.getMyEvaluations(token);
-    const data = await response.json();
+  // Charger les évaluations de l'étudiant - CORRIGÉ
+  const fetchMesEvaluations = useCallback(async () => {
+    if (!token) return;
     
-    if (response.ok && data.success) {
-      setMesEvaluations(data.evaluations || []);
+    setLoadingEvaluations(true);
+    try {
+      const response = await fetch('http://localhost:5004/api/students/evaluations', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setMesEvaluations(data.evaluations || []);
+      } else {
+        console.error('Erreur API:', data);
+        setMesEvaluations([]);
+      }
+    } catch (error) {
+      console.error('Erreur chargement évaluations:', error);
+      setMesEvaluations([]);
+    } finally {
+      setLoadingEvaluations(false);
     }
-  } catch (error) {
-    console.error('Erreur chargement évaluations:', error);
-  } finally {
-    setLoadingEvaluations(false);
-  }
-}, [token]);
+  }, [token]);
 
   const handleDeleteCV = useCallback(async () => {
     if (!confirm("Voulez-vous vraiment supprimer votre CV ?")) return;
@@ -662,44 +672,41 @@ const fetchMesEvaluations = useCallback(async () => {
     
     setShowCvModal(false);
     setSelectedOffre(null);
-    setUploadedCv(null);
   }, [selectedOffre, token, showNotification]);
 
-  
-// Ouvrir la modale de confirmation avant suppression
-const openDeleteConfirmation = useCallback((candidature) => {
-  setCandidatureToDelete(candidature);
-  setShowConfirmDeleteModal(true);
-}, []);
+  // Ouvrir la modale de confirmation avant suppression
+  const openDeleteConfirmation = useCallback((candidature) => {
+    setCandidatureToDelete(candidature);
+    setShowConfirmDeleteModal(true);
+  }, []);
 
-// Fonction pour supprimer après confirmation
-const handleDeleteCandidature = useCallback(async () => {
-  if (!candidatureToDelete) return;
-  
-  if (token) {
-    try {
-      const response = await api.deleteApplication(token, candidatureToDelete.id);
-      
-      if (response.ok) {
-        setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
-        showNotification('success', `🗑️ Candidature supprimée avec succès`);
-      } else {
-        const data = await response.json();
-        showNotification('error', data.message || "❌ Erreur lors de la suppression");
+  // Fonction pour supprimer après confirmation
+  const handleDeleteCandidature = useCallback(async () => {
+    if (!candidatureToDelete) return;
+    
+    if (token) {
+      try {
+        const response = await api.deleteApplication(token, candidatureToDelete.id);
+        
+        if (response.ok) {
+          setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
+          showNotification('success', `🗑️ Candidature supprimée avec succès`);
+        } else {
+          const data = await response.json();
+          showNotification('error', data.message || "❌ Erreur lors de la suppression");
+        }
+      } catch (error) {
+        console.error('Erreur suppression candidature:', error);
+        showNotification('error', "❌ Erreur de connexion");
       }
-    } catch (error) {
-      console.error('Erreur suppression candidature:', error);
-      showNotification('error', "❌ Erreur de connexion");
+    } else {
+      setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
+      showNotification('success', `🗑️ Candidature supprimée (mode démo)`);
     }
-  } else {
-    setCandidatures(prev => prev.filter(c => c.id !== candidatureToDelete.id));
-    showNotification('success', `🗑️ Candidature supprimée (mode démo)`);
-  }
-  
-  // Fermer la modale et nettoyer
-  setShowConfirmDeleteModal(false);
-  setCandidatureToDelete(null);
-}, [token, candidatureToDelete, showNotification]);
+    
+    setShowConfirmDeleteModal(false);
+    setCandidatureToDelete(null);
+  }, [token, candidatureToDelete, showNotification]);
 
   const handlePhotoUpload = useCallback(async (e) => {
     const file = e.target.files[0];
@@ -947,7 +954,7 @@ const handleDeleteCandidature = useCallback(async () => {
     fetchStudentProfile();
     fetchFavorites();
     fetchMesEvaluations();
-  }, [token, fetchStudentProfile, fetchFavorites,fetchMesEvaluations]);
+  }, [token, fetchStudentProfile, fetchFavorites, fetchMesEvaluations]);
 
   // Menu items
   const menuItems = [
@@ -955,9 +962,9 @@ const handleDeleteCandidature = useCallback(async () => {
     { id: "offres", label: "Liste des offres", icon: <Briefcase size={18} /> },
     { id: "mesCandidatures", label: "Mes candidatures", icon: <Send size={18} /> },
     { id: "favoris", label: "Mes favoris", icon: <Heart size={18} /> },
-{ id: "mesEvaluations", label: "Mes évaluations", icon: <Star size={18} /> },
+    { id: "mesEvaluations", label: "Mes évaluations", icon: <Star size={18} /> },
     { id: "changePassword", label: "Changer mot de passe", icon: <Key size={18} /> },
-     { id: "aide", label: "Conditions & Aide", icon: <HelpCircle size={18} /> },
+    { id: "aide", label: "Conditions & Aide", icon: <HelpCircle size={18} /> },
   ];
 
   const getMenuTitle = (id) => {
@@ -968,7 +975,7 @@ const handleDeleteCandidature = useCallback(async () => {
       favoris: 'Mes Favoris', 
       mesEvaluations: 'Mes Évaluations',
       changePassword: 'Changer le Mot de Passe',
-      aide:'Conditions & Aide'
+      aide: 'Conditions & Aide'
     };
     return titles[id] || 'Dashboard';
   };
@@ -1486,172 +1493,164 @@ const handleDeleteCandidature = useCallback(async () => {
           )}
           
           {/* MODALE DE CONFIRMATION SUPPRESSION */}
-{showConfirmDeleteModal && candidatureToDelete && (
-  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
-    <div className="rounded-2xl max-w-md w-full shadow-2xl transform animate-scale-up" style={{ backgroundColor: theme.card }}>
-      {/* En-tête */}
-      <div className="border-b px-6 py-4 flex items-center gap-3" style={{ borderColor: theme.border }}>
-        <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
-          <Trash2 size={22} className="text-rose-500" />
-        </div>
-        <h3 className="text-xl font-bold" style={{ color: theme.text }}>
-          Confirmer la suppression
-        </h3>
-      </div>
-      
-      {/* Corps */}
-      <div className="p-6">
-        <p className="text-center mb-4" style={{ color: theme.text }}>
-          Êtes-vous sûr de vouloir supprimer votre candidature pour :
-        </p>
-        <p className="text-center font-bold text-lg mb-2" style={{ color: theme.text }}>
-          "{candidatureToDelete.offreTitre}"
-        </p>
-        <p className="text-center text-sm mb-4" style={{ color: theme.textLight }}>
-          chez <strong>{candidatureToDelete.entrepriseNom || 'Entreprise'}</strong>
-        </p>
-        
-        <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: theme.cardAlt }}>
-          <p className="text-sm flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
-            <AlertCircle size={18} />
-            Cette action est irréversible !
-          </p>
-        </div>
-        
-        <p className="text-xs text-center" style={{ color: theme.textLight }}>
-          Postulé le : {new Date(candidatureToDelete.date).toLocaleDateString('fr-FR')}
-        </p>
-      </div>
-      
-      {/* Boutons */}
-      <div className="border-t p-5 flex gap-3" style={{ borderColor: theme.border }}>
-        <button
-          onClick={() => {
-            setShowConfirmDeleteModal(false);
-            setCandidatureToDelete(null);
-          }}
-          className="flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 hover:opacity-80"
-          style={{ backgroundColor: theme.cardAlt, color: theme.text }}
-        >
-          <X size={18} />
-          Annuler
-        </button>
-        <button
-          onClick={handleDeleteCandidature}
-          className="flex-1 bg-rose-500 text-white py-2.5 rounded-xl font-semibold hover:bg-rose-600 transition-all flex items-center justify-center gap-2"
-        >
-          <Trash2 size={18} />
-          Confirmer la suppression
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          {showConfirmDeleteModal && candidatureToDelete && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
+              <div className="rounded-2xl max-w-md w-full shadow-2xl transform animate-scale-up" style={{ backgroundColor: theme.card }}>
+                <div className="border-b px-6 py-4 flex items-center gap-3" style={{ borderColor: theme.border }}>
+                  <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center">
+                    <Trash2 size={22} className="text-rose-500" />
+                  </div>
+                  <h3 className="text-xl font-bold" style={{ color: theme.text }}>
+                    Confirmer la suppression
+                  </h3>
+                </div>
+                
+                <div className="p-6">
+                  <p className="text-center mb-4" style={{ color: theme.text }}>
+                    Êtes-vous sûr de vouloir supprimer votre candidature pour :
+                  </p>
+                  <p className="text-center font-bold text-lg mb-2" style={{ color: theme.text }}>
+                    "{candidatureToDelete.offreTitre}"
+                  </p>
+                  <p className="text-center text-sm mb-4" style={{ color: theme.textLight }}>
+                    chez <strong>{candidatureToDelete.entrepriseNom || 'Entreprise'}</strong>
+                  </p>
+                  
+                  <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: theme.cardAlt }}>
+                    <p className="text-sm flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400">
+                      <AlertCircle size={18} />
+                      Cette action est irréversible !
+                    </p>
+                  </div>
+                  
+                  <p className="text-xs text-center" style={{ color: theme.textLight }}>
+                    Postulé le : {new Date(candidatureToDelete.date).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+                
+                <div className="border-t p-5 flex gap-3" style={{ borderColor: theme.border }}>
+                  <button
+                    onClick={() => {
+                      setShowConfirmDeleteModal(false);
+                      setCandidatureToDelete(null);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 hover:opacity-80"
+                    style={{ backgroundColor: theme.cardAlt, color: theme.text }}
+                  >
+                    <X size={18} />
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDeleteCandidature}
+                    className="flex-1 bg-rose-500 text-white py-2.5 rounded-xl font-semibold hover:bg-rose-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={18} />
+                    Confirmer la suppression
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-
-    {/* MES CANDIDATURES */}
-{activeMenu === "mesCandidatures" && (
-  <div className="space-y-3">
-    {candidatures.length > 0 ? candidatures.map(c => (
-      <div key={c.id} className="rounded-xl p-5 shadow-sm hover:shadow-md transition border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
-        <div className="flex justify-between items-start flex-wrap gap-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <h4 className="font-bold text-lg" style={{ color: theme.text }}>{c.offreTitre}</h4>
-              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
-                c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
-                "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
-              }`}>
-                {c.statut === "acceptee" ? "✅ Acceptée" : c.statut === "refusee" ? "❌ Refusée" : "⏳ En attente"}
-              </span>
+          {/* MES CANDIDATURES */}
+          {activeMenu === "mesCandidatures" && (
+            <div className="space-y-3">
+              {candidatures.length > 0 ? candidatures.map(c => (
+                <div key={c.id} className="rounded-xl p-5 shadow-sm hover:shadow-md transition border-l-4 border-emerald-400" style={{ backgroundColor: theme.card }}>
+                  <div className="flex justify-between items-start flex-wrap gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        <h4 className="font-bold text-lg" style={{ color: theme.text }}>{c.offreTitre}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
+                          c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
+                          "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+                        }`}>
+                          {c.statut === "acceptee" ? "✅ Acceptée" : c.statut === "refusee" ? "❌ Refusée" : "⏳ En attente"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mb-2" style={{ color: theme.textLight }}>
+                        <Building2 size={16} />
+                        <span className="text-sm font-medium">{c.entrepriseNom || 'Entreprise'}</span>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
+                        {c.lieu && (
+                          <span className="flex items-center gap-1">
+                            <MapPin size={14} /> {c.lieu}
+                          </span>
+                        )}
+                        {c.type && (
+                          <span className="flex items-center gap-1">
+                            <Briefcase size={14} /> {c.type}
+                          </span>
+                        )}
+                        {c.duree && (
+                          <span className="flex items-center gap-1">
+                            <Clock size={14} /> {c.duree}
+                          </span>
+                        )}
+                        {c.salaire && c.salaire !== 'Non spécifié' && (
+                          <span className="flex items-center gap-1 text-emerald-600">
+                            <DollarSign size={14} /> {c.salaire}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <p className="text-xs" style={{ color: theme.textLight }}>
+                        <Calendar size={12} className="inline mr-1" /> 
+                        Postulé le {new Date(c.date).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                    
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="text-right">
+                        {c.statut === "en_attente" && (
+                          <div className="flex items-center gap-1 text-yellow-600 text-sm">
+                            <Clock size={14} /> En cours de traitement
+                          </div>
+                        )}
+                        {c.statut === "acceptee" && (
+                          <div className="flex items-center gap-1 text-emerald-600 text-sm">
+                            <CheckCircle size={14} /> Félicitations !
+                          </div>
+                        )}
+                        {c.statut === "refusee" && (
+                          <div className="flex items-center gap-1 text-rose-600 text-sm">
+                            <XCircle size={14} /> Non retenu
+                          </div>
+                        )}
+                      </div>
+                      
+                      {c.statut === "en_attente" && (
+                        <button
+                          onClick={() => openDeleteConfirmation(c)}
+                          className="mt-2 px-4 py-2 bg-rose-500 text-white rounded-lg text-sm hover:bg-rose-600 transition-all flex items-center gap-2 shadow-sm"
+                        >
+                          <Trash2 size={14} />
+                          Supprimer candidature
+                        </button>
+                      )}
+                      
+                      {c.statut !== "en_attente" && (
+                        <p className="text-xs mt-2 px-2 py-1 rounded-lg" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>
+                          {c.statut === "acceptee" ? "✓ Candidature acceptée - Impossible de supprimer" : "✗ Candidature refusée - Impossible de supprimer"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                  <Send size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                  <p style={{ color: theme.textLight }}>Aucune candidature</p>
+                  <button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 hover:text-emerald-700">Découvrir des offres →</button>
+                </div>
+              )}
             </div>
-            
-            {/* Informations entreprise */}
-            <div className="flex items-center gap-2 mb-2" style={{ color: theme.textLight }}>
-              <Building2 size={16} />
-              <span className="text-sm font-medium">{c.entrepriseNom || 'Entreprise'}</span>
-            </div>
-            
-            {/* Détails du stage */}
-            <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
-              {c.lieu && (
-                <span className="flex items-center gap-1">
-                  <MapPin size={14} /> {c.lieu}
-                </span>
-              )}
-              {c.type && (
-                <span className="flex items-center gap-1">
-                  <Briefcase size={14} /> {c.type}
-                </span>
-              )}
-              {c.duree && (
-                <span className="flex items-center gap-1">
-                  <Clock size={14} /> {c.duree}
-                </span>
-              )}
-              {c.salaire && c.salaire !== 'Non spécifié' && (
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <DollarSign size={14} /> {c.salaire}
-                </span>
-              )}
-            </div>
-            
-            <p className="text-xs" style={{ color: theme.textLight }}>
-              <Calendar size={12} className="inline mr-1" /> 
-              Postulé le {new Date(c.date).toLocaleDateString('fr-FR')}
-            </p>
-          </div>
+          )}
           
-          <div className="flex flex-col items-end gap-2">
-            {/* Statut badge détaillé */}
-            <div className="text-right">
-              {c.statut === "en_attente" && (
-                <div className="flex items-center gap-1 text-yellow-600 text-sm">
-                  <Clock size={14} /> En cours de traitement
-                </div>
-              )}
-              {c.statut === "acceptee" && (
-                <div className="flex items-center gap-1 text-emerald-600 text-sm">
-                  <CheckCircle size={14} /> Félicitations !
-                </div>
-              )}
-              {c.statut === "refusee" && (
-                <div className="flex items-center gap-1 text-rose-600 text-sm">
-                  <XCircle size={14} /> Non retenu
-                </div>
-              )}
-            </div>
-            
-          {/* BOUTON SUPPRIMER - Apparaît SEULEMENT si la candidature est EN ATTENTE */}
-{c.statut === "en_attente" && (
-  <button
-    onClick={() => openDeleteConfirmation(c)}  // ← Utilisez cette fonction au lieu de handleDeleteCandidature directement
-    className="mt-2 px-4 py-2 bg-rose-500 text-white rounded-lg text-sm hover:bg-rose-600 transition-all flex items-center gap-2 shadow-sm"
-  >
-    <Trash2 size={14} />
-    Supprimer candidature
-  </button>
-)}
-            
-            {/* Message pour les candidatures déjà traitées */}
-            {c.statut !== "en_attente" && (
-              <p className="text-xs mt-2 px-2 py-1 rounded-lg" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>
-                {c.statut === "acceptee" ? "✓ Candidature acceptée - Impossible de supprimer" : "✗ Candidature refusée - Impossible de supprimer"}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    )) : (
-      <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-        <Send size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-        <p style={{ color: theme.textLight }}>Aucune candidature</p>
-        <button onClick={() => setActiveMenu("offres")} className="mt-3 text-emerald-600 hover:text-emerald-700">Découvrir des offres →</button>
-      </div>
-    )}
-  </div>
-)}
           {/* MES FAVORIS */}
           {activeMenu === "favoris" && (
             <div className="space-y-3">
@@ -1686,141 +1685,133 @@ const handleDeleteCandidature = useCallback(async () => {
             </div>
           )}
 
-          {/* MES ÉVALUATIONS */}
-{activeMenu === "mesEvaluations" && (
-  <div className="space-y-4">
-    <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
-      <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-        <Star size={20} className="text-yellow-500" />
-        Mes évaluations de stage
-      </h3>
-      <p className="text-sm mb-4" style={{ color: theme.textLight }}>
-        Voici les évaluations faites par les entreprises où vous avez effectué votre stage.
-      </p>
-    </div>
-
-    {loadingEvaluations ? (
-      <div className="text-center py-12">
-        <div className="spinner mx-auto"></div>
-        <p className="mt-4" style={{ color: theme.textLight }}>Chargement des évaluations...</p>
-      </div>
-    ) : mesEvaluations.length > 0 ? (
-      mesEvaluations.map((evalData, index) => (
-        <div key={index} className="rounded-xl shadow-sm overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
-          {/* En-tête avec entreprise et offre */}
-          <div className="p-5 border-b" style={{ borderColor: theme.border, backgroundColor: theme.cardAlt }}>
-            <div className="flex justify-between items-start flex-wrap gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 size={18} className="text-emerald-500" />
-                  <span className="font-semibold" style={{ color: theme.text }}>{evalData.entrepriseNom || 'Entreprise'}</span>
-                </div>
-                <h4 className="font-bold text-lg" style={{ color: theme.text }}>{evalData.offreTitre}</h4>
-                <p className="text-xs mt-1" style={{ color: theme.textLight }}>
-                  <Calendar size={12} className="inline mr-1" />
-                  Évalué le : {evalData.dateEvaluation || new Date(evalData.createdAt).toLocaleDateString('fr-FR')}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <Star 
-                      key={star} 
-                      size={20} 
-                      className={star <= evalData.evaluation?.note ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
-                    />
-                  ))}
-                </div>
-                <span className="text-2xl font-bold text-yellow-500 ml-2">{evalData.evaluation?.note}/5</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Corps de l'évaluation */}
-          <div className="p-5">
-            {/* Grille des notes */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <Clock size={20} className="mx-auto mb-1 text-blue-500" />
-                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Ponctualité</p>
-                <p className="text-xl font-bold text-blue-600">{evalData.evaluation?.ponctualite || 0}/20</p>
-              </div>
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <FileText size={20} className="mx-auto mb-1 text-purple-500" />
-                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Qualité travail</p>
-                <p className="text-xl font-bold text-purple-600">{evalData.evaluation?.qualiteTravail || 0}/20</p>
-              </div>
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <User size={20} className="mx-auto mb-1 text-orange-500" />
-                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Autonomie</p>
-                <p className="text-xl font-bold text-orange-600">{evalData.evaluation?.autonomie || 0}/20</p>
-              </div>
-              <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <Users size={20} className="mx-auto mb-1 text-green-500" />
-                <p className="text-xs font-medium" style={{ color: theme.textLight }}>Esprit d'équipe</p>
-                <p className="text-xl font-bold text-green-600">{evalData.evaluation?.espritEquipe || 0}/20</p>
-              </div>
-            </div>
-
-            {/* Moyenne générale */}
-            <div className="rounded-xl p-4 mb-4 text-center" style={{ backgroundColor: theme.cardAlt }}>
-              <p className="text-sm font-medium mb-1" style={{ color: theme.textLight }}>Moyenne générale</p>
-              <p className="text-3xl font-bold text-emerald-600">
-                {Math.round((
-                  (evalData.evaluation?.ponctualite || 0) + 
-                  (evalData.evaluation?.qualiteTravail || 0) + 
-                  (evalData.evaluation?.autonomie || 0) + 
-                  (evalData.evaluation?.espritEquipe || 0)
-                ) / 4)}/20
-              </p>
-            </div>
-
-            {/* Progression */}
-            {evalData.evaluation?.progression && (
-              <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={16} className="text-blue-500" />
-                  <span className="font-medium" style={{ color: theme.text }}>Progression observée</span>
-                </div>
+          {/* MES ÉVALUATIONS - VERSION CORRIGÉE */}
+          {activeMenu === "mesEvaluations" && (
+            <div className="space-y-4">
+              <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>
+                <h3 className="text-lg font-semibold mb-2 flex items-center gap-2" style={{ color: theme.text }}>
+                  <Star size={20} className="text-yellow-500" />
+                  Mes évaluations de stage
+                </h3>
                 <p className="text-sm" style={{ color: theme.textLight }}>
-                  {evalData.evaluation.progression === 'excellente' && '📈 Excellente - A dépassé les objectifs'}
-                  {evalData.evaluation.progression === 'bonne' && '📈 Bonne - Progression notable'}
-                  {evalData.evaluation.progression === 'moyenne' && '📊 Moyenne - Conforme aux attentes'}
-                  {evalData.evaluation.progression === 'faible' && '📉 Faible - Peu de progression'}
-                  {evalData.evaluation.progression === 'aucune' && '⏸️ Aucune - Stagnation'}
+                  Voici les évaluations faites par les entreprises où vous avez effectué votre stage.
                 </p>
               </div>
-            )}
 
-            {/* Commentaire */}
-            {evalData.evaluation?.commentaire && (
-              <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <MessageCircle size={16} className="text-emerald-500" />
-                  <span className="font-medium" style={{ color: theme.text }}>Commentaire de l'entreprise</span>
+              {loadingEvaluations ? (
+                <div className="text-center py-12">
+                  <div className="spinner mx-auto"></div>
+                  <p className="mt-4" style={{ color: theme.textLight }}>Chargement des évaluations...</p>
                 </div>
-                <p className="text-sm italic" style={{ color: theme.textLight }}>
-                  "{evalData.evaluation.commentaire}"
-                </p>
-                <p className="text-xs mt-2 text-right" style={{ color: theme.textLight }}>
-                  — {evalData.evaluation.evaluateur || 'L\'entreprise'}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      ))
-    ) : (
-      <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-        <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-        <p style={{ color: theme.textLight }}>Aucune évaluation reçue pour le moment</p>
-        <p className="text-sm mt-2" style={{ color: theme.textLight }}>
-          Les évaluations apparaîtront ici une fois que vous aurez effectué un stage accepté par une entreprise.
-        </p>
-      </div>
-    )}
-  </div>
-)}
+              ) : mesEvaluations.length > 0 ? (
+                mesEvaluations.map((evalData, index) => (
+                  <div key={index} className="rounded-xl shadow-sm overflow-hidden border" style={{ backgroundColor: theme.card, borderColor: theme.border }}>
+                    {/* En-tête */}
+                    <div className="p-5 border-b" style={{ borderColor: theme.border, backgroundColor: theme.cardAlt }}>
+                      <div className="flex justify-between items-start flex-wrap gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Building2 size={18} className="text-emerald-500" />
+                            <span className="font-semibold" style={{ color: theme.text }}>{evalData.entreprise_nom || 'Entreprise'}</span>
+                          </div>
+                          <h4 className="font-bold text-lg" style={{ color: theme.text }}>{evalData.offre_titre}</h4>
+                          <p className="text-xs mt-1" style={{ color: theme.textLight }}>
+                            <Calendar size={12} className="inline mr-1" />
+                            Évalué le : {new Date(evalData.date_evaluation || evalData.created_at).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <Star 
+                                key={star} 
+                                size={20} 
+                                className={star <= evalData.note ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-2xl font-bold text-yellow-500 ml-2">{evalData.note}/5</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Corps */}
+                    <div className="p-5">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+                        <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <Clock size={20} className="mx-auto mb-1 text-blue-500" />
+                          <p className="text-xs font-medium" style={{ color: theme.textLight }}>Ponctualité</p>
+                          <p className="text-xl font-bold text-blue-600">{evalData.ponctualite}/20</p>
+                        </div>
+                        <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <FileText size={20} className="mx-auto mb-1 text-purple-500" />
+                          <p className="text-xs font-medium" style={{ color: theme.textLight }}>Qualité travail</p>
+                          <p className="text-xl font-bold text-purple-600">{evalData.qualite_travail}/20</p>
+                        </div>
+                        <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <User size={20} className="mx-auto mb-1 text-orange-500" />
+                          <p className="text-xs font-medium" style={{ color: theme.textLight }}>Autonomie</p>
+                          <p className="text-xl font-bold text-orange-600">{evalData.autonomie}/20</p>
+                        </div>
+                        <div className="text-center p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <Users size={20} className="mx-auto mb-1 text-green-500" />
+                          <p className="text-xs font-medium" style={{ color: theme.textLight }}>Esprit d'équipe</p>
+                          <p className="text-xl font-bold text-green-600">{evalData.esprit_equipe}/20</p>
+                        </div>
+                      </div>
+
+                      {/* Moyenne */}
+                      <div className="rounded-xl p-4 mb-4 text-center" style={{ backgroundColor: theme.cardAlt }}>
+                        <p className="text-sm font-medium mb-1" style={{ color: theme.textLight }}>Moyenne générale</p>
+                        <p className="text-3xl font-bold text-emerald-600">
+                          {Math.round((evalData.ponctualite + evalData.qualite_travail + evalData.autonomie + evalData.esprit_equipe) / 4)}/20
+                        </p>
+                      </div>
+
+                      {/* Progression */}
+                      {evalData.progression && (
+                        <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp size={16} className="text-blue-500" />
+                            <span className="font-medium" style={{ color: theme.text }}>Progression observée</span>
+                          </div>
+                          <p className="text-sm" style={{ color: theme.textLight }}>
+                            {evalData.progression === 'excellente' && '📈 Excellente - A dépassé les objectifs'}
+                            {evalData.progression === 'bonne' && '📈 Bonne - Progression notable'}
+                            {evalData.progression === 'moyenne' && '📊 Moyenne - Conforme aux attentes'}
+                            {evalData.progression === 'faible' && '📉 Faible - Peu de progression'}
+                            {evalData.progression === 'aucune' && '⏸️ Aucune - Stagnation'}
+                            {!['excellente', 'bonne', 'moyenne', 'faible', 'aucune'].includes(evalData.progression) && evalData.progression}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Commentaire */}
+                      {evalData.commentaire && (
+                        <div className="p-4 rounded-xl" style={{ backgroundColor: theme.cardAlt }}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <MessageCircle size={16} className="text-emerald-500" />
+                            <span className="font-medium" style={{ color: theme.text }}>Commentaire de l'entreprise</span>
+                          </div>
+                          <p className="text-sm italic" style={{ color: theme.textLight }}>
+                            "{evalData.commentaire}"
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+                  <Star size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+                  <p style={{ color: theme.textLight }}>Aucune évaluation reçue pour le moment</p>
+                  <p className="text-sm mt-2" style={{ color: theme.textLight }}>
+                    Les évaluations apparaîtront ici une fois que vous aurez effectué un stage accepté par une entreprise.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* CHANGER MOT DE PASSE */}
           {activeMenu === "changePassword" && (
@@ -1865,146 +1856,97 @@ const handleDeleteCandidature = useCallback(async () => {
           )}
 
           {/* CONDITIONS & AIDE */}
-{activeMenu === "aide" && (
-  <div className="max-w-4xl mx-auto space-y-6">
-    {/* En-tête */}
-    <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.card }}>
-      <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}>
-        <HelpCircle size={40} className="text-emerald-500" />
-      </div>
-      <h3 className="text-2xl font-bold mb-2" style={{ color: theme.text }}>Centre d'aide & Conditions</h3>
-      <p className="text-sm" style={{ color: theme.textLight }}>
-        Retrouvez toutes les informations nécessaires pour utiliser la plateforme
-      </p>
-    </div>
+          {activeMenu === "aide" && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.card }}>
+                <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: theme.cardAlt }}>
+                  <HelpCircle size={40} className="text-emerald-500" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2" style={{ color: theme.text }}>Centre d'aide & Conditions</h3>
+                <p className="text-sm" style={{ color: theme.textLight }}>
+                  Retrouvez toutes les informations nécessaires pour utiliser la plateforme
+                </p>
+              </div>
 
-    {/* FAQ Section */}
-    <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-        <MessageCircle size={20} className="text-emerald-500" />
-        Foire Aux Questions (FAQ)
-      </h3>
-      
-      <div className="space-y-4">
-        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
-            <Briefcase size={16} className="text-emerald-500" />
-            Comment postuler à une offre ?
-          </h4>
-          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
-            1. Parcourez la liste des offres dans la section "Liste des offres"<br />
-            2. Cliquez sur "Postuler" sur l'offre qui vous intéresse<br />
-            3. Téléchargez votre CV ou utilisez celui de votre profil<br />
-            4. Confirmez votre candidature
-          </p>
-        </div>
+              <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
+                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
+                  <MessageCircle size={20} className="text-emerald-500" />
+                  Foire Aux Questions (FAQ)
+                </h3>
+                
+                <div className="space-y-4">
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+                      <Briefcase size={16} className="text-emerald-500" />
+                      Comment postuler à une offre ?
+                    </h4>
+                    <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+                      1. Parcourez la liste des offres dans la section "Liste des offres"<br />
+                      2. Cliquez sur "Postuler" sur l'offre qui vous intéresse<br />
+                      3. Téléchargez votre CV ou utilisez celui de votre profil<br />
+                      4. Confirmez votre candidature
+                    </p>
+                  </div>
 
-        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
-            <Heart size={16} className="text-rose-500" />
-            Comment ajouter une offre aux favoris ?
-          </h4>
-          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
-            Cliquez sur l'icône ❤️ à côté de chaque offre pour l'ajouter à vos favoris. 
-            Retrouvez toutes vos offres favorites dans la section "Mes favoris".
-          </p>
-        </div>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+                      <Heart size={16} className="text-rose-500" />
+                      Comment ajouter une offre aux favoris ?
+                    </h4>
+                    <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+                      Cliquez sur l'icône ❤️ à côté de chaque offre pour l'ajouter à vos favoris. 
+                      Retrouvez toutes vos offres favorites dans la section "Mes favoris".
+                    </p>
+                  </div>
 
-        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
-            <FileText size={16} className="text-blue-500" />
-            Comment gérer mon CV ?
-          </h4>
-          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
-            - Upload CV: Téléchargez votre CV au format PDF, DOC ou DOCX<br />
-            - Générer CV: Créez un CV automatiquement à partir de vos informations de profil<br />
-            - Supprimer CV: Retirez votre CV de la plateforme
-          </p>
-        </div>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+                      <FileText size={16} className="text-blue-500" />
+                      Comment gérer mon CV ?
+                    </h4>
+                    <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+                      - Upload CV: Téléchargez votre CV au format PDF, DOC ou DOCX<br />
+                      - Générer CV: Créez un CV automatiquement à partir de vos informations de profil<br />
+                      - Supprimer CV: Retirez votre CV de la plateforme
+                    </p>
+                  </div>
 
-        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
-            <Bell size={16} className="text-yellow-500" />
-            Comment suivre mes candidatures ?
-          </h4>
-          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
-            Rendez-vous dans la section "Mes candidatures" pour suivre l'état de vos candidatures :
-            <br />• 🟡 En attente: Votre candidature est en cours d'examen
-            <br />• 🟢 Acceptée: Félicitations ! L'entreprise vous a accepté
-            <br />• 🔴 Refusée: Votre candidature n'a pas été retenue
-          </p>
-        </div>
+                  <div className="border-b pb-4" style={{ borderColor: theme.border }}>
+                    <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
+                      <Bell size={16} className="text-yellow-500" />
+                      Comment suivre mes candidatures ?
+                    </h4>
+                    <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
+                      Rendez-vous dans la section "Mes candidatures" pour suivre l'état de vos candidatures :
+                      <br />• 🟡 En attente: Votre candidature est en cours d'examen
+                      <br />• 🟢 Acceptée: Félicitations ! L'entreprise vous a accepté
+                      <br />• 🔴 Refusée: Votre candidature n'a pas été retenue
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-        <div className="border-b pb-4" style={{ borderColor: theme.border }}>
-          <h4 className="font-semibold flex items-center gap-2 mb-2" style={{ color: theme.text }}>
-            <User size={16} className="text-purple-500" />
-            Comment modifier mon profil ?
-          </h4>
-          <p className="text-sm leading-relaxed" style={{ color: theme.textLight }}>
-            Allez dans "Mon profil" et cliquez sur "Modifier". Vous pourrez mettre à jour 
-            vos informations personnelles, votre filière, vos compétences, etc.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    {/* Conditions d'utilisation */}
-    <div className="rounded-2xl p-6 shadow-sm" style={{ backgroundColor: theme.card }}>
-      <h3 className="text-xl font-semibold mb-4 flex items-center gap-2" style={{ color: theme.text }}>
-        <FileText size={20} className="text-emerald-500" />
-        Conditions d'utilisation
-      </h3>
-      
-      <div className="space-y-3 text-sm leading-relaxed" style={{ color: theme.textLight }}>
-        <p>
-          <strong className="text-emerald-600">1. Acceptation des conditions</strong><br />
-          En utilisant notre plateforme, vous acceptez pleinement les présentes conditions d'utilisation.
-        </p>
-        <p>
-          <strong className="text-emerald-600">2. Compte utilisateur</strong><br />
-          Vous êtes responsable de la confidentialité de votre compte et de votre mot de passe. 
-          Toute activité effectuée sous votre compte est de votre responsabilité.
-        </p>
-        <p>
-          <strong className="text-emerald-600">3. Candidatures</strong><br />
-          Les informations fournies dans vos candidatures doivent être exactes et sincères. 
-          Tout faux renseignement peut entraîner la suspension de votre compte.
-        </p>
-        <p>
-          <strong className="text-emerald-600">4. Confidentialité</strong><br />
-          Vos données personnelles sont protégées conformément à notre politique de confidentialité. 
-          Elles ne seront pas partagées avec des tiers sans votre consentement.
-        </p>
-        <p>
-          <strong className="text-emerald-600">5. Comportement</strong><br />
-          Les utilisateurs doivent adopter un comportement respectueux envers les entreprises et autres utilisateurs. 
-          Tout abus ou comportement inapproprié sera sanctionné.
-        </p>
-      </div>
-    </div>
-
-    {/* Contact Support */}
-    <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.cardAlt }}>
-      <h3 className="text-lg font-semibold mb-3 flex items-center justify-center gap-2" style={{ color: theme.text }}>
-        <Mail size={20} className="text-emerald-500" />
-        Besoin d'aide supplémentaire ?
-      </h3>
-      <p className="text-sm mb-4" style={{ color: theme.textLight }}>
-        Notre équipe support est disponible pour répondre à vos questions
-      </p>
-      <div className="flex flex-wrap gap-3 justify-center">
-        <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
-          <Mail size={16} className="text-emerald-500" />
-          <span className="text-sm">support@stag.io</span>
-        </div>
-        <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
-          <Phone size={16} className="text-emerald-500" />
-          <span className="text-sm">+213 (0) 23 45 67 89</span>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+              <div className="rounded-2xl p-6 shadow-sm text-center" style={{ backgroundColor: theme.cardAlt }}>
+                <h3 className="text-lg font-semibold mb-3 flex items-center justify-center gap-2" style={{ color: theme.text }}>
+                  <Mail size={20} className="text-emerald-500" />
+                  Besoin d'aide supplémentaire ?
+                </h3>
+                <p className="text-sm mb-4" style={{ color: theme.textLight }}>
+                  Notre équipe support est disponible pour répondre à vos questions
+                </p>
+                <div className="flex flex-wrap gap-3 justify-center">
+                  <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
+                    <Mail size={16} className="text-emerald-500" />
+                    <span className="text-sm">support@stag.io</span>
+                  </div>
+                  <div className="p-3 rounded-xl flex items-center gap-2" style={{ backgroundColor: theme.card }}>
+                    <Phone size={16} className="text-emerald-500" />
+                    <span className="text-sm">+213 (0) 23 45 67 89</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

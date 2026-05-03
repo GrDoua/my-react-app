@@ -528,51 +528,60 @@ const handleSaveEdit = useCallback(async () => {
     }
   }, [token, showNotification, checkToken, fetchCompanyApplications]);
 
- const handleSaveEvaluation = useCallback(async () => {
+ // Dans DashboardEntreprise.jsx - CORRECTION COMPLÈTE
+const handleSaveEvaluation = useCallback(async () => {
   if (!checkToken()) return;
   
-  if (!selectedStagiaire) return;
+  if (!selectedStagiaire) {
+    showNotification('error', "❌ Aucun stagiaire sélectionné");
+    return;
+  }
   
-  // ✅ CORRECTION : utiliser l'ID de la candidature (selectedStagiaire.id)
-  // au lieu de studentId et offerId
+  // Récupérer l'ID étudiant depuis la candidature
+  const studentId = selectedStagiaire.studentId || selectedStagiaire.etudiantId;
+  
+  if (!studentId) {
+    showNotification('error', "❌ Impossible d'identifier l'étudiant");
+    console.error("Student ID manquant dans:", selectedStagiaire);
+    return;
+  }
+  
+  // Structure complète des données d'évaluation
   const evaluationData = {
-    ponctualite: evaluation.ponctualite,
-    qualiteTravail: evaluation.qualiteTravail,
-    autonomie: evaluation.autonomie,
-    espritEquipe: evaluation.espritEquipe,
-    note: evaluation.note,
-    commentaire: evaluation.commentaire,
-    progression: evaluation.progression
+    studentId: studentId,
+    candidatureId: selectedStagiaire.id,
+    offreTitre: selectedStagiaire.offreTitre || selectedStagiaire.titre,
+    entrepriseNom: entrepriseProfil.nom || "Entreprise",
+    ponctualite: parseInt(evaluation.ponctualite) || 0,
+    qualiteTravail: parseInt(evaluation.qualiteTravail) || 0,
+    autonomie: parseInt(evaluation.autonomie) || 0,
+    espritEquipe: parseInt(evaluation.espritEquipe) || 0,
+    note: parseInt(evaluation.note) || 0,
+    commentaire: evaluation.commentaire || "",
+    progression: evaluation.progression || "moyenne",
+    dateEvaluation: new Date().toISOString()
   };
   
-  console.log("📤 Envoi évaluation pour candidature ID:", selectedStagiaire.id);
-  console.log("📤 Données:", evaluationData);
+  console.log("📤 Envoi évaluation:", evaluationData);
+  console.log("📤 Student ID:", studentId);
+  console.log("📤 Candidature ID:", selectedStagiaire.id);
   
   try {
-    // ✅ CORRECTION : Appeler la bonne URL avec l'ID de la candidature
     const response = await api.saveEvaluation(token, selectedStagiaire.id, evaluationData);
     const data = await response.json();
     
-    console.log("📥 Réponse:", data);
+    console.log("📥 Réponse API:", response.status, data);
     
     if (response.ok) {
-      // Mettre à jour localement
+      // Mettre à jour l'état local
       setMesCandidatures(prev => 
         prev.map(c => 
           c.id === selectedStagiaire.id 
             ? { 
                 ...c, 
-                evaluation: {
-                  ponctualite: evaluation.ponctualite,
-                  qualiteTravail: evaluation.qualiteTravail,
-                  autonomie: evaluation.autonomie,
-                  espritEquipe: evaluation.espritEquipe,
-                  note: evaluation.note,
-                  commentaire: evaluation.commentaire,
-                  progression: evaluation.progression,
-                  dateEvaluation: new Date().toLocaleDateString('fr-FR'),
-                  evaluateur: entrepriseProfil.nom
-                }
+                evaluation: evaluationData,
+                hasEvaluation: true,
+                evaluatedAt: new Date().toISOString()
               } 
             : c
         )
@@ -581,17 +590,16 @@ const handleSaveEdit = useCallback(async () => {
       showNotification('success', `✅ Évaluation de ${selectedStagiaire.etudiantNom} enregistrée avec succès`);
       setShowEvaluationModal(false);
       
-      // Recharger les candidatures pour avoir les données à jour
-      fetchCompanyApplications();
+      // Recharger toutes les candidatures pour être à jour
+      await fetchCompanyApplications();
     } else {
-      showNotification('error', data.message || "❌ Erreur lors de l'enregistrement");
+      showNotification('error', data.message || data.error || "❌ Erreur lors de l'enregistrement");
     }
   } catch (error) {
-    console.error('Erreur:', error);
-    showNotification('error', "❌ Erreur de connexion");
+    console.error('❌ Erreur:', error);
+    showNotification('error', "❌ Erreur de connexion au serveur");
   }
 }, [evaluation, selectedStagiaire, entrepriseProfil.nom, token, showNotification, checkToken, fetchCompanyApplications]);
-
   const handlePasswordChange = useCallback((e) => {
     setPasswordData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPasswordErrors(prev => ({ ...prev, [e.target.name]: "" }));
