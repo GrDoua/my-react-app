@@ -520,11 +520,46 @@ export function DashboardEntreprise({
     }
   }, [token, showNotification, fetchCompanyProfile]);
 
-  const handleViewCV = useCallback((candidature) => {
-    setSelectedCandidature(candidature);
-    setShowCvModal(true);
-  }, []);
-
+const handleViewCV = useCallback(async (candidature) => {
+  if (!checkToken()) return;
+  
+  try {
+    console.log("📥 Téléchargement du CV pour:", candidature.etudiantNom);
+    
+    // Appel API pour télécharger le CV
+    const response = await api.downloadStudentCV(token, candidature.id);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Erreur lors du téléchargement");
+    }
+    
+    // Récupérer le blob (fichier)
+    const blob = await response.blob();
+    
+    // Créer une URL pour le blob
+    const url = window.URL.createObjectURL(blob);
+    
+    // Créer un lien temporaire pour le téléchargement
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `CV_${candidature.etudiantNom.replace(/\s/g, '_')}.pdf`);
+    document.body.appendChild(link);
+    
+    // Déclencher le téléchargement
+    link.click();
+    
+    // Nettoyer
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    showNotification('success', "✅ Téléchargement du CV commencé");
+    
+  } catch (error) {
+    console.error("❌ Erreur téléchargement CV:", error);
+    showNotification('error', error.message || "Impossible de télécharger le CV");
+  }
+}, [token, checkToken, showNotification]);
   const handleAccepterCandidat = useCallback(async (candidature) => {
     if (!checkToken()) return;
     
@@ -708,7 +743,7 @@ export function DashboardEntreprise({
         </div>
       )}
 
-      {/* MODAL CV */}
+    {/* MODAL CV */}
       {showCvModal && selectedCandidature && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" style={{ backgroundColor: theme.card }}>
@@ -1139,78 +1174,79 @@ export function DashboardEntreprise({
             </div>
           )}
 
-          {/* CANDIDATURES */}
-          {activeMenu === "candidatures" && (
-            <div>
-              <div className="flex flex-wrap gap-4 mb-5 items-center justify-between">
-                <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Candidatures reçues</h3>
-                <div className="flex gap-3">
-                  <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
-                    <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 pr-3 py-2 border rounded-xl text-sm w-64" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
-                  </div>
-                  <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border rounded-xl text-sm" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
-                    <option value="Tous">Tous</option>
-                    <option value="en_attente">En attente</option>
-                    <option value="acceptee">Acceptée</option>
-                    <option value="refusee">Refusée</option>
-                  </select>
-                </div>
+     {/* CANDIDATURES */}
+{activeMenu === "candidatures" && (
+  <div>
+    <div className="flex flex-wrap gap-4 mb-5 items-center justify-between">
+      <h3 className="text-lg font-semibold" style={{ color: theme.text }}>Candidatures reçues</h3>
+      <div className="flex gap-3">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: theme.textLight }} />
+          <input type="text" placeholder="Rechercher..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 pr-3 py-2 border rounded-xl text-sm w-64" style={{ backgroundColor: theme.inputBg, color: theme.text, borderColor: theme.border }} />
+        </div>
+        <select value={filterStatut} onChange={(e) => setFilterStatut(e.target.value)} className="px-3 py-2 border rounded-xl text-sm" style={{ backgroundColor: theme.card, color: theme.text, borderColor: theme.border }}>
+          <option value="Tous">Tous</option>
+          <option value="en_attente">En attente</option>
+          <option value="acceptee">Acceptée</option>
+          <option value="refusee">Refusée</option>
+        </select>
+      </div>
+    </div>
+    <div className="space-y-3">
+      {candidaturesFiltrees.length > 0 ? candidaturesFiltrees.map(c => (
+        <div key={c.id} className={`rounded-xl p-4 shadow-sm hover:shadow-md transition border-l-4 ${
+          c.statut === "acceptee" ? "border-emerald-400" : c.statut === "refusee" ? "border-rose-400" : "border-yellow-400"
+        }`} style={{ backgroundColor: theme.card }}>
+          <div className="flex justify-between items-start flex-wrap gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-bold" style={{ color: theme.text }}>{c.etudiantNom || "Candidat"}</h4>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
+                  c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
+                  "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
+                }`}>
+                  {c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}
+                </span>
               </div>
-              <div className="space-y-3">
-                {candidaturesFiltrees.length > 0 ? candidaturesFiltrees.map(c => (
-                  <div key={c.id} className={`rounded-xl p-4 shadow-sm hover:shadow-md transition border-l-4 ${
-                    c.statut === "acceptee" ? "border-emerald-400" : c.statut === "refusee" ? "border-rose-400" : "border-yellow-400"
-                  }`} style={{ backgroundColor: theme.card }}>
-                    <div className="flex justify-between items-start flex-wrap gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold" style={{ color: theme.text }}>{c.etudiantNom || "Candidat"}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                            c.statut === "acceptee" ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300" : 
-                            c.statut === "refusee" ? "bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300" : 
-                            "bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300"
-                          }`}>
-                            {c.statut === "acceptee" ? "Acceptée" : c.statut === "refusee" ? "Refusée" : "En attente"}
-                          </span>
-                        </div>
-                        <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre || "Offre"}</p>
-                        <p className="text-sm flex items-center gap-1 mt-1" style={{ color: theme.textLight }}><Mail size={12} /> {c.email || "Email non renseigné"}</p>
-                        <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date ? new Date(c.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleViewCV(c)} className="px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
-                          <Eye size={14} /> Voir CV
-                        </button>
-                        {c.statut === "en_attente" && (
-                          <>
-                            <button 
-                              onClick={() => handleAccepterCandidat(c)} 
-                              className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 transition flex items-center gap-1"
-                            >
-                              <Check size={14} /> Accepter
-                            </button>
-                            <button 
-                              onClick={() => handleRefuserCandidat(c)} 
-                              className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-rose-600 transition flex items-center gap-1"
-                            >
-                              <XCircle size={14} /> Refuser
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
-                    <Users size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
-                    <p style={{ color: theme.textLight }}>Aucune candidature reçue</p>
-                  </div>
-                )}
-              </div>
+              <p className="text-sm" style={{ color: theme.textLight }}>{c.offreTitre || "Offre"}</p>
+              <p className="text-sm flex items-center gap-1 mt-1" style={{ color: theme.textLight }}><Mail size={12} /> {c.email || "Email non renseigné"}</p>
+              <p className="text-xs mt-1" style={{ color: theme.textLight }}>Postulé le {c.date ? new Date(c.date).toLocaleDateString() : new Date().toLocaleDateString()}</p>
             </div>
-          )}
-
+            <div className="flex gap-2">
+              {c.statut !== "acceptee" && c.statut !== "refusee" &&(
+                <button onClick={() => handleViewCV(c)} className="px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1" style={{ backgroundColor: theme.cardAlt, color: theme.text }}>
+                  <Eye size={14} /> Voir CV
+                </button>
+              )}
+              {c.statut === "en_attente" && (
+                <>
+                  <button 
+                    onClick={() => handleAccepterCandidat(c)} 
+                    className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 transition flex items-center gap-1"
+                  >
+                    <Check size={14} /> Accepter
+                  </button>
+                  <button 
+                    onClick={() => handleRefuserCandidat(c)} 
+                    className="bg-rose-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-rose-600 transition flex items-center gap-1"
+                  >
+                    <XCircle size={14} /> Refuser
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )) : (
+        <div className="rounded-xl p-12 text-center" style={{ backgroundColor: theme.card }}>
+          <Users size={48} className="mx-auto mb-3" style={{ color: theme.textLight }} />
+          <p style={{ color: theme.textLight }}>Aucune candidature reçue</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
           {/* STAGIAIRES ÉVALUÉS */}
           {activeMenu === "stagiaires" && (
             <div>

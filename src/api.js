@@ -228,6 +228,14 @@ saveEvaluation: (token, applicationId, evaluationData) => {
     headers: { 'Authorization': `Bearer ${token}` }
   }),
 
+  // ========== ENTREPRISE - TÉLÉCHARGER CV ==========
+downloadStudentCV: (token, applicationId) => fetch(`${API_BASE_URL}/companies/applications/${applicationId}/cv`, {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+}),
+
   // ========== ADMIN ==========
   getAdminStats: (token) => fetch(`${API_BASE_URL}/admin/stats`, {
     headers: { 'Authorization': `Bearer ${token}` }
