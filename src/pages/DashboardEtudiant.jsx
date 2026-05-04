@@ -203,6 +203,9 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
   const [mesEvaluations, setMesEvaluations] = useState([]);
   const [loadingEvaluations, setLoadingEvaluations] = useState(false);
   
+  // État pour suivre les conventions déjà téléchargées
+  const [downloadedConventions, setDownloadedConventions] = useState({});
+  
   // Thème basé sur darkMode
   const theme = {
     bg: darkMode ? '#111827' : '#f3f4f6',
@@ -269,6 +272,16 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
   // États pour le mot de passe
   const [passwordData, setPasswordData] = useState({ ancienMotDePasse: "", nouveauMotDePasse: "", confirmerMotDePasse: "" });
   const [passwordErrors, setPasswordErrors] = useState({});
+
+  // ============================================
+  // CHARGEMENT ÉTAT CONVENTIONS DEPUIS LOCALSTORAGE
+  // ============================================
+  useEffect(() => {
+    const saved = localStorage.getItem('downloadedConventions');
+    if (saved) {
+      setDownloadedConventions(JSON.parse(saved));
+    }
+  }, []);
 
   // ============================================
   // FONCTIONS
@@ -389,7 +402,7 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
     }
   }, [favoris, addToFavorites, removeFromFavorites]);
 
-  // Charger les évaluations de l'étudiant - CORRIGÉ
+  // Charger les évaluations de l'étudiant
   const fetchMesEvaluations = useCallback(async () => {
     if (!token) return;
     
@@ -757,6 +770,51 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
       }
     }
   }, [token, showNotification]);
+
+  // ========== TÉLÉCHARGER LA CONVENTION AVEC VÉRIFICATION ==========
+  const handleDownloadConvention = useCallback(async (candidatureId) => {
+    if (!token) {
+      showNotification('error', "❌ Vous devez être connecté");
+      return;
+    }
+    
+    // Vérifier si déjà téléchargé
+    if (downloadedConventions[candidatureId]) {
+      showNotification('warning', "⚠️ Convention déjà téléchargée précédemment");
+      return;
+    }
+    
+    try {
+      showNotification('info', "📄 Téléchargement de la convention...");
+      
+      const response = await api.downloadConvention(token, candidatureId);
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `convention_stage_${candidatureId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        // Sauvegarder l'état dans localStorage
+        const newState = { ...downloadedConventions, [candidatureId]: true };
+        setDownloadedConventions(newState);
+        localStorage.setItem('downloadedConventions', JSON.stringify(newState));
+        
+        showNotification('success', "✅ Convention téléchargée avec succès");
+      } else {
+        const error = await response.json();
+        showNotification('error', error.message || "❌ Convention non disponible");
+      }
+    } catch (error) {
+      console.error('Erreur téléchargement convention:', error);
+      showNotification('error', "❌ Erreur de connexion");
+    }
+  }, [token, showNotification, downloadedConventions]);
 
   const handleInputChange = useCallback((e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -1552,7 +1610,7 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
             </div>
           )}
 
-          {/* MES CANDIDATURES */}
+          {/* MES CANDIDATURES - Version avec bouton Voir convention désactivé après téléchargement */}
           {activeMenu === "mesCandidatures" && (
             <div className="space-y-3">
               {candidatures.length > 0 ? candidatures.map(c => (
@@ -1572,7 +1630,7 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
                       
                       <div className="flex items-center gap-2 mb-2" style={{ color: theme.textLight }}>
                         <Building2 size={16} />
-                        <span className="text-sm font-medium">{c.entrepriseNom || 'Entreprise'}</span>
+                        <span className="text-sm font-medium">{c.entrepriseNom || c.entreprise || 'Entreprise'}</span>
                       </div>
                       
                       <div className="flex flex-wrap gap-4 mb-3 text-sm" style={{ color: theme.textLight }}>
@@ -1623,6 +1681,23 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
                         )}
                       </div>
                       
+                      {/* Bouton Voir Convention pour les candidatures acceptées - Désactivé après téléchargement */}
+                      {c.statut === "acceptee" && (
+                        <button
+                          onClick={() => handleDownloadConvention(c.id)}
+                          disabled={downloadedConventions[c.id]}
+                          className={`mt-2 px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2 shadow-sm ${
+                            downloadedConventions[c.id] 
+                              ? 'bg-gray-500 cursor-not-allowed opacity-60' 
+                              : 'bg-blue-500 hover:bg-blue-600'
+                          } text-white`}
+                        >
+                          <FileText size={14} />
+                          {downloadedConventions[c.id] ? 'Déjà téléchargée' : 'Voir convention'}
+                        </button>
+                      )}
+                      
+                      {/* Bouton Supprimer pour les candidatures en attente */}
                       {c.statut === "en_attente" && (
                         <button
                           onClick={() => openDeleteConfirmation(c)}
@@ -1633,9 +1708,9 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
                         </button>
                       )}
                       
-                      {c.statut !== "en_attente" && (
+                      {c.statut !== "en_attente" && c.statut !== "acceptee" && (
                         <p className="text-xs mt-2 px-2 py-1 rounded-lg" style={{ backgroundColor: theme.cardAlt, color: theme.textLight }}>
-                          {c.statut === "acceptee" ? "✓ Candidature acceptée - Impossible de supprimer" : "✗ Candidature refusée - Impossible de supprimer"}
+                          ✗ Candidature refusée
                         </p>
                       )}
                     </div>
@@ -1685,7 +1760,7 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
             </div>
           )}
 
-          {/* MES ÉVALUATIONS - VERSION CORRIGÉE */}
+          {/* MES ÉVALUATIONS */}
           {activeMenu === "mesEvaluations" && (
             <div className="space-y-4">
               <div className="rounded-xl p-4 shadow-sm" style={{ backgroundColor: theme.card }}>

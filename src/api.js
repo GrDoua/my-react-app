@@ -109,18 +109,19 @@ export const api = {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   }),
+  
   // Supprimer une candidature (étudiant)
-deleteApplication: async (token, applicationId) => {
-  // Option 1: Si vous utilisez la route étudiant
-  const response = await fetch(`http://localhost:5004/api/applications/my-applications/${applicationId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  });
-  return response;
-},
+  deleteApplication: async (token, applicationId) => {
+    const response = await fetch(`http://localhost:5004/api/applications/my-applications/${applicationId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  },
+  
   // ========== FAVORIS ==========
   getFavorites: (token) => fetch(`${API_BASE_URL}/students/favorites`, {
     headers: { 'Authorization': `Bearer ${token}` }
@@ -135,7 +136,32 @@ deleteApplication: async (token, applicationId) => {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   }),
-
+uploadConvention: (token, applicationId, file) => {
+  const formData = new FormData();
+  formData.append('convention', file);
+  return fetch(`${API_BASE_URL}/admin/applications/${applicationId}/convention`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+},
+// Ajoute cette fonction dans la section ========== CANDIDATURES ==========
+downloadConvention: (token, applicationId) => fetch(`${API_BASE_URL}/students/applications/${applicationId}/convention`, {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+}),
+// Ajoute cette fonction dans la section ADMIN de api.js
+generateConvention: (token, applicationId) => fetch(`${API_BASE_URL}/admin/applications/${applicationId}/generate-convention`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+}),
   // ========== ENTREPRISES ==========
   getCompanies: () => fetch(`${API_BASE_URL}/companies`),
   
@@ -183,7 +209,8 @@ deleteApplication: async (token, applicationId) => {
     },
     body: JSON.stringify({ status })
   }),
-// ========== ENTREPRISE - PROFIL (AJOUTE CECI) ==========
+  
+  // ========== ENTREPRISE - PROFIL ==========
   updateCompanyProfile: (token, profileData) => fetch(`${API_BASE_URL}/companies/profile`, {
     method: 'PUT',
     headers: {
@@ -193,29 +220,36 @@ deleteApplication: async (token, applicationId) => {
     body: JSON.stringify(profileData)
   }),
 
-  // ========== ENTREPRISE - STATS (AJOUTE CECI) ==========
+  // ========== ENTREPRISE - STATS ==========
   getCompanyStats: (token) => fetch(`${API_BASE_URL}/companies/stats`, {
     headers: { 'Authorization': `Bearer ${token}` }
   }),
-  updateApplicationStatus: (applicationId, token, status) => fetch(`${API_BASE_URL}/companies/applications/${applicationId}/status`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify({ status })
+  
+  // ========== ENTREPRISE - STATS AVANCÉES ==========
+  getAdvancedStats: (token) => fetch(`${API_BASE_URL}/companies/advanced-stats`, {
+    headers: { 'Authorization': `Bearer ${token}` }
   }),
-// Dans api.js - autre option
-saveEvaluation: (token, applicationId, evaluationData) => {
-  return fetch(`${API_BASE_URL}/companies/evaluations/${applicationId}`, {
-    method: 'POST',
+
+  // ========== ENTREPRISE - TÉLÉCHARGER CV ==========
+  downloadStudentCV: (token, applicationId) => fetch(`${API_BASE_URL}/companies/applications/${applicationId}/cv`, {
+    method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
-    },
-    body: JSON.stringify(evaluationData)
-  });
-},
+    }
+  }),
+
+  // ========== ENTREPRISE - ÉVALUATIONS ==========
+  saveEvaluation: (token, applicationId, evaluationData) => {
+    return fetch(`${API_BASE_URL}/companies/evaluations/${applicationId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(evaluationData)
+    });
+  },
+  
   getEvaluation: (token, applicationId) => fetch(`${API_BASE_URL}/applications/${applicationId}/evaluation`, {
     method: 'GET',
     headers: {
@@ -223,25 +257,84 @@ saveEvaluation: (token, applicationId, evaluationData) => {
       'Content-Type': 'application/json'
     }
   }),
-// ========== ENTREPRISE - STATS AVANCÉES ==========
-  getAdvancedStats: (token) => fetch(`${API_BASE_URL}/companies/advanced-stats`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  }),
-
-  // ========== ENTREPRISE - TÉLÉCHARGER CV ==========
-downloadStudentCV: (token, applicationId) => fetch(`${API_BASE_URL}/companies/applications/${applicationId}/cv`, {
-  method: 'GET',
-  headers: {
-    'Authorization': `Bearer ${token}`
-  }
-}),
 
   // ========== ADMIN ==========
+  // Profil Admin
+  getAdminProfile: (token) => fetch(`${API_BASE_URL}/admin/profile`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }),
+  
+  updateAdminProfile: (token, profileData) => fetch(`${API_BASE_URL}/admin/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(profileData)
+  }),
+  
+  uploadAdminPhoto: (token, file) => {
+    const formData = new FormData();
+    formData.append('photo', file);
+    return fetch(`${API_BASE_URL}/admin/upload-photo`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+  },
+  
+  changeAdminPassword: (token, passwordData) => fetch(`${API_BASE_URL}/admin/change-password`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(passwordData)
+  }),
+  
+  // Statistiques Admin
   getAdminStats: (token) => fetch(`${API_BASE_URL}/admin/stats`, {
     headers: { 'Authorization': `Bearer ${token}` }
   }),
   
+  // Gestion Candidatures Admin
   getAllApplications: (token) => fetch(`${API_BASE_URL}/admin/applications`, {
     headers: { 'Authorization': `Bearer ${token}` }
+  }),
+  
+  validateInternship: (token, applicationId) => fetch(`${API_BASE_URL}/admin/validate/${applicationId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  }),
+  
+  // Gestion Utilisateurs Admin
+  getAllStudents: (token) => fetch(`${API_BASE_URL}/admin/students`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }),
+  
+  getAllCompanies: (token) => fetch(`${API_BASE_URL}/admin/companies`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }),
+  
+  toggleUserStatus: (token, userId) => fetch(`${API_BASE_URL}/admin/users/${userId}/toggle-status`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
+  }),
+  
+  // Gestion Offres Admin
+  deleteOfferByAdmin: (token, offerId) => fetch(`${API_BASE_URL}/admin/offers/${offerId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    }
   })
 };

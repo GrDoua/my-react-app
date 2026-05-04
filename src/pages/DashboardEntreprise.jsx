@@ -1235,6 +1235,10 @@ const handleViewCV = useCallback(async (candidature) => {
                   </button>
                 </>
               )}
+              {c.statut === "acceptee" && (
+               <button className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-600 transition flex items-center gap-1">
+                  <Eye size={14} />Voir Convention </button>
+              )}
             </div>
           </div>
         </div>

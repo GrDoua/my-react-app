@@ -648,6 +648,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       offres={offres}
       entreprises={entreprises}
       candidatures={candidatures}
+      token={localStorage.getItem('token')}  
       onDeleteOffre={deleteOfferByAdmin}
       onUpdateCandidature={handleUpdateCandidatureStatus}
       onLogout={handleLogout}
