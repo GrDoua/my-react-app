@@ -1248,11 +1248,26 @@ export function DashboardEtudiant({ etudiant, onLogout, onUpdateProfil, onChange
         </nav>
       </div>
 
-      {/* CONTENU PRINCIPAL */}
-      <div className="flex-1 flex flex-col">
-        <div className="shadow-sm px-6 py-4 sticky top-0 z-10" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
-          <h2 className="text-xl font-bold" style={{ color: theme.text }}>{getMenuTitle(activeMenu)}</h2>
+     {/* CONTENU PRINCIPAL */}
+<div className="flex-1 flex flex-col">
+  <div className="shadow-sm px-6 py-4 sticky top-0 z-10 flex justify-between items-center" style={{ backgroundColor: theme.card, borderBottom: `1px solid ${theme.border}` }}>
+    <h2 className="text-xl font-bold" style={{ color: theme.text }}>{getMenuTitle(activeMenu)}</h2>
+    
+    {/* Icône user + nom - aligné à droite */}
+    <div className="flex items-center gap-3">
+      {photoPreview ? (
+        <img src={photoPreview} alt="Profile" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-400" />
+      ) : (
+        <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+          <User size={18} className="text-emerald-600 dark:text-emerald-400" />
         </div>
+      )}
+      <span className="font-medium" style={{ color: theme.text }}>
+        {formData.prenom} {formData.nom}
+      </span>
+    </div>
+  </div>
+
 
         <div className="flex-1 overflow-y-auto p-6">
           
